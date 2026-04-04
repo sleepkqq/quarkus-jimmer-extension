@@ -2,7 +2,7 @@ package io.quarkiverse.jimmer.runtime.cache;
 
 import java.util.Objects;
 
-import org.babyfish.jimmer.jackson.ImmutableModule;
+import org.babyfish.jimmer.jackson.codec.JsonCodec;
 import org.babyfish.jimmer.meta.ImmutableProp;
 import org.babyfish.jimmer.meta.ImmutableType;
 import org.babyfish.jimmer.sql.cache.Cache;
@@ -14,9 +14,6 @@ import org.babyfish.jimmer.sql.cache.chain.LoadingBinder;
 import org.babyfish.jimmer.sql.cache.chain.SimpleBinder;
 import org.babyfish.jimmer.sql.cache.spi.AbstractCacheCreator;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
 import io.quarkus.redis.datasource.RedisDataSource;
 
 @Deprecated
@@ -26,8 +23,8 @@ public class RedisCacheCreator extends AbstractCacheCreator {
         this(redisDataSource, null);
     }
 
-    public RedisCacheCreator(RedisDataSource redisDataSource, ObjectMapper objectMapper) {
-        super(new Root(redisDataSource, objectMapper));
+    public RedisCacheCreator(RedisDataSource redisDataSource, JsonCodec<?> jsonCodec) {
+        super(new Root(redisDataSource, jsonCodec));
     }
 
     protected RedisCacheCreator(Cfg cfg) {
@@ -110,7 +107,7 @@ public class RedisCacheCreator extends AbstractCacheCreator {
         return RedisValueBinder
                 .<K, V> forObject(type)
                 .publish(args.tracker)
-                .objectMapper(args.objectMapper)
+                .jsonCodec(args.jsonCodec)
                 .keyPrefixProvider(args.keyPrefixProvider)
                 .duration(args.duration)
                 .randomPercent(args.randomDurationPercent)
@@ -124,7 +121,7 @@ public class RedisCacheCreator extends AbstractCacheCreator {
         return RedisValueBinder
                 .<K, V> forProp(prop)
                 .publish(args.tracker)
-                .objectMapper(args.objectMapper)
+                .jsonCodec(args.jsonCodec)
                 .keyPrefixProvider(args.keyPrefixProvider)
                 .duration(args.duration)
                 .randomPercent(args.randomDurationPercent)
@@ -138,7 +135,7 @@ public class RedisCacheCreator extends AbstractCacheCreator {
         return RedisHashBinder
                 .<K, V> forProp(prop)
                 .publish(args.tracker)
-                .objectMapper(args.objectMapper)
+                .jsonCodec(args.jsonCodec)
                 .keyPrefixProvider(args.keyPrefixProvider)
                 .duration(args.multiVewDuration)
                 .randomPercent(args.randomDurationPercent)
@@ -151,12 +148,12 @@ public class RedisCacheCreator extends AbstractCacheCreator {
 
         final RedisDataSource redisDataSource;
 
-        final ObjectMapper objectMapper;
+        final JsonCodec<?> jsonCodec;
 
-        private Root(RedisDataSource redisDataSource, ObjectMapper objectMapper) {
+        private Root(RedisDataSource redisDataSource, JsonCodec<?> jsonCodec) {
             super(null);
             this.redisDataSource = Objects.requireNonNull(redisDataSource, "redisDataSource cannot be null");
-            this.objectMapper = objectMapper;
+            this.jsonCodec = jsonCodec;
         }
     }
 
@@ -164,18 +161,13 @@ public class RedisCacheCreator extends AbstractCacheCreator {
 
         final RedisDataSource redisDataSource;
 
-        final ObjectMapper objectMapper;
+        final JsonCodec<?> jsonCodec;
 
         Args(Cfg cfg) {
             super(cfg);
             Root root = cfg.as(Root.class);
             this.redisDataSource = root.redisDataSource;
-            ObjectMapper mapper = root.objectMapper;
-            ObjectMapper clonedMapper = mapper != null ? new ObjectMapper(mapper) {
-            } : new ObjectMapper();
-            clonedMapper.registerModule(new JavaTimeModule());
-            clonedMapper.registerModule(new ImmutableModule());
-            this.objectMapper = clonedMapper;
+            this.jsonCodec = root.jsonCodec != null ? root.jsonCodec : JsonCodec.jsonCodec();
         }
     }
 }

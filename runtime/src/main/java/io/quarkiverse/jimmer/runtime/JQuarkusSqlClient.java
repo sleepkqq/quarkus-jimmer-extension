@@ -46,6 +46,8 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.babyfish.jimmer.jackson.codec.JsonCodec;
+
 import io.quarkiverse.jimmer.runtime.cfg.JimmerBuildTimeConfig;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerDataSourceRuntimeConfig;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerRuntimeConfig;
@@ -185,7 +187,7 @@ class JQuarkusSqlClient extends JLazyInitializationSqlClient {
         }
         builder
                 .setDatabaseValidationMode(runtimeConfig.databaseValidation().mode())
-                .setDefaultSerializedTypeObjectMapper(objectMapper)
+                .setDefaultSerializedTypeJsonCodec(objectMapper != null ? JsonCodec.jsonCodec() : null)
                 .setCacheFactory(cacheFactory)
                 .setCacheOperator(cacheOperator)
                 .addCacheAbandonedCallbacks(callbacks);

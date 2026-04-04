@@ -8,12 +8,19 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.Priorities;
 
+import org.babyfish.jimmer.Draft;
+import org.babyfish.jimmer.Input;
+import org.babyfish.jimmer.View;
 import org.babyfish.jimmer.error.CodeBasedException;
 import org.babyfish.jimmer.error.CodeBasedRuntimeException;
+import org.babyfish.jimmer.sql.Entity;
 import org.babyfish.jimmer.sql.JSqlClient;
+import org.babyfish.jimmer.sql.MappedSuperclass;
+import org.babyfish.jimmer.sql.ast.table.Table;
 import org.babyfish.jimmer.sql.TransientResolver;
 import org.babyfish.jimmer.sql.cache.TransactionCacheOperator;
 import org.babyfish.jimmer.sql.event.TriggerType;
+import org.babyfish.jimmer.sql.fetcher.Fetcher;
 import org.babyfish.jimmer.sql.kt.KSqlClient;
 import org.jboss.jandex.*;
 import org.jboss.logging.Logger;
@@ -55,6 +62,7 @@ import io.quarkus.deployment.annotations.*;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.*;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveHierarchyIgnoreWarningBuildItem;
 import io.quarkus.deployment.logging.LoggingSetupBuildItem;
 import io.quarkus.deployment.util.JandexUtil;
@@ -73,6 +81,17 @@ final class JimmerProcessor {
     private static final String FEATURE = "jimmer";
 
     private static final String JIMMER_CONTAINER_BEAN_NAME_PREFIX = "jimmer_container_";
+
+    private static final List<DotName> ENTITY_ANNOTATIONS = List.of(
+            DotName.createSimple(Entity.class),
+            DotName.createSimple(MappedSuperclass.class));
+
+    private static final List<DotName> IMPLEMENTOR_TYPES = List.of(
+            DotName.createSimple(View.class),
+            DotName.createSimple(Input.class),
+            DotName.createSimple(Draft.class),
+            DotName.createSimple(Table.class),
+            DotName.createSimple(Fetcher.class));
 
     @BuildStep
     FeatureBuildItem feature() {
@@ -684,6 +703,56 @@ final class JimmerProcessor {
                 Constant.CLIENT_RESOURCE,
                 Constant.ENTITIES_RESOURCE,
                 Constant.IMMUTABLES_RESOURCE));
+    }
+
+    @BuildStep
+    void registerJimmerClassesForReflection(CombinedIndexBuildItem combinedIndex,
+            BuildProducer<ReflectiveClassBuildItem> reflectiveClass) {
+        IndexView index = combinedIndex.getIndex();
+        Set<String> classNames = new HashSet<>();
+
+        collectAnnotatedEntities(index, classNames);
+        collectImplementors(index, classNames);
+
+        if (!classNames.isEmpty()) {
+            reflectiveClass.produce(
+                    ReflectiveClassBuildItem.builder(classNames.toArray(new String[0]))
+                            .methods(true)
+                            .fields(true)
+                            .constructors(true)
+                            .build());
+        }
+    }
+
+    private void collectAnnotatedEntities(IndexView index, Set<String> classNames) {
+        for (DotName annotation : ENTITY_ANNOTATIONS) {
+            for (AnnotationInstance instance : index.getAnnotations(annotation)) {
+                ClassInfo entityClass = instance.target().asClass();
+                addClassWithMemberClasses(entityClass, classNames);
+
+                // Register generated companions found in the index (Draft, Props, Fetcher, etc.)
+                for (ClassInfo candidate : index.getClassesInPackage(entityClass.name().packagePrefix())) {
+                    if (candidate.name().toString().startsWith(entityClass.name().toString())) {
+                        addClassWithMemberClasses(candidate, classNames);
+                    }
+                }
+            }
+        }
+    }
+
+    private void collectImplementors(IndexView index, Set<String> classNames) {
+        for (DotName type : IMPLEMENTOR_TYPES) {
+            for (ClassInfo implementor : index.getAllKnownImplementors(type)) {
+                addClassWithMemberClasses(implementor, classNames);
+            }
+        }
+    }
+
+    private void addClassWithMemberClasses(ClassInfo classInfo, Set<String> classNames) {
+        classNames.add(classInfo.name().toString());
+        for (DotName memberClass : classInfo.memberClasses()) {
+            classNames.add(memberClass.toString());
+        }
     }
 
     static final class JimmerEnable extends AbstractJimmerBooleanSupplier {

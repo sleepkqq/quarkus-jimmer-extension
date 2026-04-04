@@ -17,8 +17,6 @@ import org.babyfish.jimmer.sql.cache.redisson.RedissonCacheLocker;
 import org.babyfish.jimmer.sql.cache.redisson.RedissonCacheTracker;
 import org.redisson.api.RedissonClient;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.quarkus.arc.Unremovable;
 import io.quarkus.redis.datasource.RedisDataSource;
 
@@ -27,9 +25,8 @@ public class CacheConfig {
 
     @Singleton
     @Unremovable
-    public CacheFactory cacheFactory(RedissonClient redissonClient, RedisDataSource redisDataSource,
-            ObjectMapper objectMapper) {
-        CacheCreator creator = new RedisCacheCreator(redisDataSource, objectMapper)
+    public CacheFactory cacheFactory(RedissonClient redissonClient, RedisDataSource redisDataSource) {
+        CacheCreator creator = new RedisCacheCreator(redisDataSource)
                 .withRemoteDuration(Duration.ofHours(1))
                 .withLocalCache(100, Duration.ofMinutes(5))
                 .withMultiViewProperties(40, Duration.ofMinutes(2), Duration.ofMinutes(24))
