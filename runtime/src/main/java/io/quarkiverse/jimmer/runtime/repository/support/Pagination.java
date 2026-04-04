@@ -1,6 +1,7 @@
 package io.quarkiverse.jimmer.runtime.repository.support;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Pagination {
 
@@ -39,7 +40,7 @@ public class Pagination {
      * @see #of(int, int)
      */
     @JsonCreator
-    public Pagination(int index, int size) {
+    public Pagination(@JsonProperty("index") int index, @JsonProperty("size") int size) {
         if (index < 0)
             throw new IllegalArgumentException("Page index must be >= 0 : " + index);
         if (size <= 0)
