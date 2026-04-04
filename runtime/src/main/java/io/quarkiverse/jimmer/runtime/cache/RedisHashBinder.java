@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.babyfish.jimmer.jackson.codec.JsonCodec;
 import org.babyfish.jimmer.meta.ImmutableProp;
 import org.babyfish.jimmer.meta.ImmutableType;
 import org.babyfish.jimmer.sql.cache.CacheTracker;
@@ -15,8 +16,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.hash.HashCommands;
@@ -36,12 +35,12 @@ public class RedisHashBinder<K, V> extends AbstractRemoteHashBinder<K, V> {
             @Nullable ImmutableType type,
             @Nullable ImmutableProp prop,
             @Nullable CacheTracker tracker,
-            @Nullable ObjectMapper objectMapper,
+            @Nullable JsonCodec<?> jsonCodec,
             @Nullable RemoteKeyPrefixProvider keyPrefixProvider,
             @NotNull Duration duration,
             int randomPercent,
             @NotNull RedisDataSource redisDataSource) {
-        super(type, prop, tracker, objectMapper, keyPrefixProvider, duration, randomPercent);
+        super(type, prop, tracker, jsonCodec, keyPrefixProvider, duration, randomPercent);
         this.hashCommands = redisDataSource.hash(byte[].class);
         this.valueCommands = redisDataSource.value(byte[].class);
     }
@@ -105,7 +104,7 @@ public class RedisHashBinder<K, V> extends AbstractRemoteHashBinder<K, V> {
             if (null == redisDataSource) {
                 throw new IllegalStateException("RedisDataSource has not been specified");
             }
-            return new RedisHashBinder<>(type, prop, tracker, objectMapper, keyPrefixProvider, duration, randomPercent,
+            return new RedisHashBinder<>(type, prop, tracker, jsonCodec, keyPrefixProvider, duration, randomPercent,
                     redisDataSource);
         }
     }

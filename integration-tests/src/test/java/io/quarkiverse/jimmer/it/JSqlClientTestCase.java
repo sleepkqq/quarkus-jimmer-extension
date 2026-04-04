@@ -20,9 +20,11 @@ import io.quarkiverse.jimmer.runtime.java.QuarkusJSqlClientContainer;
 import io.quarkus.agroal.DataSource;
 import io.quarkus.arc.Arc;
 import io.quarkus.arc.InstanceHandle;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
+@QuarkusTestResource(RedisTestResource.class)
 public class JSqlClientTestCase {
 
     @Inject
