@@ -13,7 +13,7 @@ dependencies {
 	implementation(libs.quarkus.redis.client)
 	implementation(libs.quarkus.caffeine)
 
-	implementation(project(":runtime"))
+	implementation(project(":quarkus-jimmer"))
 
 	runtimeOnly(libs.quarkus.jdbc.h2)
 
