@@ -5,7 +5,7 @@ plugins {
 }
 
 subprojects {
-	group = "com.sleepkqq"
+	group = "com.github.sleepkqq.quarkus-jimmer-extension"
 	version = findProperty("version") as String? ?: "0.0.0-SNAPSHOT"
 
 	apply(plugin = "org.jetbrains.kotlin.jvm")
