@@ -9,7 +9,6 @@ subprojects {
 	version = findProperty("version") as String? ?: "0.0.0-SNAPSHOT"
 
 	apply(plugin = "org.jetbrains.kotlin.jvm")
-	apply(plugin = "maven-publish")
 
 	repositories {
 		mavenCentral()
@@ -38,6 +37,10 @@ subprojects {
 			exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 		}
 	}
+}
+
+configure(subprojects.filter { it.name != "integration-tests" }) {
+	apply(plugin = "maven-publish")
 
 	configure<PublishingExtension> {
 		publications {
