@@ -12,7 +12,7 @@ dependencies {
 	compileOnly(libs.quarkus.redis.client.deployment)
 	compileOnly(libs.quarkus.caffeine.deployment)
 
-	implementation(project(":runtime"))
+	implementation(project(":quarkus-jimmer"))
 
 	annotationProcessor(libs.quarkus.extension.processor)
 

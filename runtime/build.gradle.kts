@@ -3,6 +3,10 @@ plugins {
 	alias(libs.plugins.quarkus.extension)
 }
 
+quarkusExtension {
+	deploymentModule.set("quarkus-jimmer-deployment")
+}
+
 dependencies {
 	api(platform(libs.quarkus.bom))
 
