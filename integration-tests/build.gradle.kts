@@ -23,4 +23,6 @@ dependencies {
 
 	testImplementation(libs.quarkus.junit5)
 	testImplementation(libs.rest.assured)
+	testImplementation(libs.testcontainers)
+	testImplementation(libs.testcontainers.junit)
 }
