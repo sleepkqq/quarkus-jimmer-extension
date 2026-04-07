@@ -752,10 +752,22 @@ final class JimmerProcessor {
         for (DotName annotation : ENTITY_ANNOTATIONS) {
             for (AnnotationInstance instance : index.getAnnotations(annotation)) {
                 ClassInfo entityClass = instance.target().asClass();
+                // Jimmer entities are interfaces — properties are represented as methods
+                for (MethodInfo method : entityClass.methods()) {
+                    if (method.parametersCount() == 0 && method.returnType().kind() == Type.Kind.CLASS) {
+                        ClassInfo returnTypeClass = index.getClassByName(method.returnType().name());
+                        if (returnTypeClass != null && returnTypeClass.isEnum()) {
+                            enumClassNames.add(returnTypeClass.name().toString());
+                        }
+                    }
+                }
+                // Also check fields for non-interface cases
                 for (FieldInfo field : entityClass.fields()) {
-                    ClassInfo fieldTypeClass = index.getClassByName(field.type().name());
-                    if (fieldTypeClass != null && fieldTypeClass.isEnum()) {
-                        enumClassNames.add(fieldTypeClass.name().toString());
+                    if (field.type().kind() == Type.Kind.CLASS) {
+                        ClassInfo fieldTypeClass = index.getClassByName(field.type().name());
+                        if (fieldTypeClass != null && fieldTypeClass.isEnum()) {
+                            enumClassNames.add(fieldTypeClass.name().toString());
+                        }
                     }
                 }
             }
