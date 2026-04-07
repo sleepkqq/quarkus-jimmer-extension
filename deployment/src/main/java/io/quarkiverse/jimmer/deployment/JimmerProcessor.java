@@ -16,6 +16,12 @@ import org.babyfish.jimmer.error.CodeBasedRuntimeException;
 import org.babyfish.jimmer.sql.Entity;
 import org.babyfish.jimmer.sql.JSqlClient;
 import org.babyfish.jimmer.sql.MappedSuperclass;
+import org.babyfish.jimmer.sql.dialect.H2Dialect;
+import org.babyfish.jimmer.sql.dialect.MySqlDialect;
+import org.babyfish.jimmer.sql.dialect.OracleDialect;
+import org.babyfish.jimmer.sql.dialect.PostgresDialect;
+import org.babyfish.jimmer.sql.dialect.SqlServerDialect;
+import org.babyfish.jimmer.sql.dialect.TiDBDialect;
 import org.babyfish.jimmer.sql.ast.table.Table;
 import org.babyfish.jimmer.sql.TransientResolver;
 import org.babyfish.jimmer.sql.cache.TransactionCacheOperator;
@@ -698,6 +704,20 @@ final class JimmerProcessor {
                 Constant.CLIENT_RESOURCE,
                 Constant.ENTITIES_RESOURCE,
                 Constant.IMMUTABLES_RESOURCE));
+    }
+
+    @BuildStep
+    void registerDialectsForReflection(BuildProducer<ReflectiveClassBuildItem> reflectiveClass) {
+        reflectiveClass.produce(
+                ReflectiveClassBuildItem.builder(
+                        PostgresDialect.class,
+                        MySqlDialect.class,
+                        OracleDialect.class,
+                        H2Dialect.class,
+                        SqlServerDialect.class,
+                        TiDBDialect.class)
+                        .constructors(true)
+                        .build());
     }
 
     @BuildStep
