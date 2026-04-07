@@ -22,6 +22,7 @@ import org.babyfish.jimmer.sql.dialect.OracleDialect;
 import org.babyfish.jimmer.sql.dialect.PostgresDialect;
 import org.babyfish.jimmer.sql.dialect.SqlServerDialect;
 import org.babyfish.jimmer.sql.dialect.TiDBDialect;
+import org.babyfish.jimmer.sql.meta.UUIDIdGenerator;
 import org.babyfish.jimmer.sql.ast.table.Table;
 import org.babyfish.jimmer.sql.TransientResolver;
 import org.babyfish.jimmer.sql.cache.TransactionCacheOperator;
@@ -715,7 +716,8 @@ final class JimmerProcessor {
                         OracleDialect.class,
                         H2Dialect.class,
                         SqlServerDialect.class,
-                        TiDBDialect.class)
+                        TiDBDialect.class,
+                        UUIDIdGenerator.class)
                         .constructors(true)
                         .build());
     }
