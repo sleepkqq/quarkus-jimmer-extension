@@ -2,6 +2,7 @@ package io.quarkiverse.jimmer.runtime.cfg.support;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.function.Function;
 
 import javax.sql.DataSource;
@@ -18,8 +19,15 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
 
     private final DataSource dataSource;
 
+    private final String defaultSchema;
+
     public QuarkusConnectionManager(DataSource dataSource) {
+        this(dataSource, null);
+    }
+
+    public QuarkusConnectionManager(DataSource dataSource, String defaultSchema) {
         this.dataSource = dataSource;
+        this.defaultSchema = defaultSchema;
     }
 
     @NotNull
@@ -39,6 +47,7 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
             return block.apply(con);
         }
         try (Connection newConnection = dataSource.getConnection()) {
+            applyDefaultSchema(newConnection);
             return block.apply(newConnection);
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -49,6 +58,12 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
     public <R> R executeTransaction(Propagation propagation, Function<Connection, R> block) {
         TransactionRunnerOptions transactionRunnerOptions = behavior(propagation);
         return transactionRunnerOptions.call(() -> execute(block));
+    }
+
+    private void applyDefaultSchema(Connection connection) throws SQLException {
+        if (defaultSchema != null && !defaultSchema.isEmpty()) {
+            connection.setSchema(defaultSchema);
+        }
     }
 
     private TransactionRunnerOptions behavior(Propagation propagation) {
