@@ -725,9 +725,11 @@ final class JimmerProcessor {
             BuildProducer<ReflectiveClassBuildItem> reflectiveClass) {
         IndexView index = combinedIndex.getIndex();
         Set<String> classNames = new HashSet<>();
+        Set<String> enumClassNames = new HashSet<>();
 
         collectAnnotatedEntities(index, classNames);
         collectImplementors(index, classNames);
+        collectEnumTypesFromEntities(index, enumClassNames);
 
         if (!classNames.isEmpty()) {
             reflectiveClass.produce(
@@ -736,6 +738,27 @@ final class JimmerProcessor {
                             .fields(true)
                             .constructors(true)
                             .build());
+        }
+
+        if (!enumClassNames.isEmpty()) {
+            reflectiveClass.produce(
+                    ReflectiveClassBuildItem.builder(enumClassNames.toArray(new String[0]))
+                            .fields(true)
+                            .build());
+        }
+    }
+
+    private void collectEnumTypesFromEntities(IndexView index, Set<String> enumClassNames) {
+        for (DotName annotation : ENTITY_ANNOTATIONS) {
+            for (AnnotationInstance instance : index.getAnnotations(annotation)) {
+                ClassInfo entityClass = instance.target().asClass();
+                for (FieldInfo field : entityClass.fields()) {
+                    ClassInfo fieldTypeClass = index.getClassByName(field.type().name());
+                    if (fieldTypeClass != null && fieldTypeClass.isEnum()) {
+                        enumClassNames.add(fieldTypeClass.name().toString());
+                    }
+                }
+            }
         }
     }
 
