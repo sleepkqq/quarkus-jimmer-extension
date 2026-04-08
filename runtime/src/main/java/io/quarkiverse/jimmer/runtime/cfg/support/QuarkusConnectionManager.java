@@ -46,7 +46,6 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
             return block.apply(SchemaAwareConnectionWrapper.wrap(con, defaultSchema));
         }
         try (Connection newConnection = dataSource.getConnection()) {
-            applyDefaultSchema(newConnection);
             return block.apply(SchemaAwareConnectionWrapper.wrap(newConnection, defaultSchema));
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -57,12 +56,6 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
     public <R> R executeTransaction(Propagation propagation, Function<Connection, R> block) {
         TransactionRunnerOptions transactionRunnerOptions = behavior(propagation);
         return transactionRunnerOptions.call(() -> execute(block));
-    }
-
-    private void applyDefaultSchema(Connection connection) throws SQLException {
-        if (defaultSchema != null && !defaultSchema.isEmpty()) {
-            connection.setSchema(defaultSchema);
-        }
     }
 
     private TransactionRunnerOptions behavior(Propagation propagation) {
