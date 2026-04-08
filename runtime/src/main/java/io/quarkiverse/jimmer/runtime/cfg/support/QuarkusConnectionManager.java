@@ -44,11 +44,11 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
     @Override
     public final <R> R execute(@Nullable Connection con, Function<Connection, R> block) {
         if (null != con) {
-            return block.apply(con);
+            return block.apply(SchemaAwareConnectionWrapper.wrap(con, defaultSchema));
         }
         try (Connection newConnection = dataSource.getConnection()) {
             applyDefaultSchema(newConnection);
-            return block.apply(newConnection);
+            return block.apply(SchemaAwareConnectionWrapper.wrap(newConnection, defaultSchema));
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
