@@ -16,6 +16,13 @@ import org.babyfish.jimmer.error.CodeBasedRuntimeException;
 import org.babyfish.jimmer.sql.Entity;
 import org.babyfish.jimmer.sql.JSqlClient;
 import org.babyfish.jimmer.sql.MappedSuperclass;
+import org.babyfish.jimmer.sql.dialect.H2Dialect;
+import org.babyfish.jimmer.sql.dialect.MySqlDialect;
+import org.babyfish.jimmer.sql.dialect.OracleDialect;
+import org.babyfish.jimmer.sql.dialect.PostgresDialect;
+import org.babyfish.jimmer.sql.dialect.SqlServerDialect;
+import org.babyfish.jimmer.sql.dialect.TiDBDialect;
+import org.babyfish.jimmer.sql.meta.UUIDIdGenerator;
 import org.babyfish.jimmer.sql.ast.table.Table;
 import org.babyfish.jimmer.sql.TransientResolver;
 import org.babyfish.jimmer.sql.cache.TransactionCacheOperator;
@@ -701,13 +708,30 @@ final class JimmerProcessor {
     }
 
     @BuildStep
+    void registerDialectsForReflection(BuildProducer<ReflectiveClassBuildItem> reflectiveClass) {
+        reflectiveClass.produce(
+                ReflectiveClassBuildItem.builder(
+                        PostgresDialect.class,
+                        MySqlDialect.class,
+                        OracleDialect.class,
+                        H2Dialect.class,
+                        SqlServerDialect.class,
+                        TiDBDialect.class,
+                        UUIDIdGenerator.class)
+                        .constructors(true)
+                        .build());
+    }
+
+    @BuildStep
     void registerJimmerClassesForReflection(CombinedIndexBuildItem combinedIndex,
             BuildProducer<ReflectiveClassBuildItem> reflectiveClass) {
         IndexView index = combinedIndex.getIndex();
         Set<String> classNames = new HashSet<>();
+        Set<String> enumClassNames = new HashSet<>();
 
         collectAnnotatedEntities(index, classNames);
         collectImplementors(index, classNames);
+        collectEnumTypesFromEntities(index, enumClassNames);
 
         if (!classNames.isEmpty()) {
             reflectiveClass.produce(
@@ -716,6 +740,39 @@ final class JimmerProcessor {
                             .fields(true)
                             .constructors(true)
                             .build());
+        }
+
+        if (!enumClassNames.isEmpty()) {
+            reflectiveClass.produce(
+                    ReflectiveClassBuildItem.builder(enumClassNames.toArray(new String[0]))
+                            .fields(true)
+                            .build());
+        }
+    }
+
+    private void collectEnumTypesFromEntities(IndexView index, Set<String> enumClassNames) {
+        for (DotName annotation : ENTITY_ANNOTATIONS) {
+            for (AnnotationInstance instance : index.getAnnotations(annotation)) {
+                ClassInfo entityClass = instance.target().asClass();
+                // Jimmer entities are interfaces — properties are represented as methods
+                for (MethodInfo method : entityClass.methods()) {
+                    if (method.parametersCount() == 0 && method.returnType().kind() == Type.Kind.CLASS) {
+                        ClassInfo returnTypeClass = index.getClassByName(method.returnType().name());
+                        if (returnTypeClass != null && returnTypeClass.isEnum()) {
+                            enumClassNames.add(returnTypeClass.name().toString());
+                        }
+                    }
+                }
+                // Also check fields for non-interface cases
+                for (FieldInfo field : entityClass.fields()) {
+                    if (field.type().kind() == Type.Kind.CLASS) {
+                        ClassInfo fieldTypeClass = index.getClassByName(field.type().name());
+                        if (fieldTypeClass != null && fieldTypeClass.isEnum()) {
+                            enumClassNames.add(fieldTypeClass.name().toString());
+                        }
+                    }
+                }
+            }
         }
     }
 
