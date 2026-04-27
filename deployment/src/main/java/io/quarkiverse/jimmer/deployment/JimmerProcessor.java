@@ -25,8 +25,18 @@ import org.babyfish.jimmer.sql.dialect.TiDBDialect;
 import org.babyfish.jimmer.sql.meta.UUIDIdGenerator;
 import org.babyfish.jimmer.sql.ast.table.Table;
 import org.babyfish.jimmer.sql.TransientResolver;
+import org.babyfish.jimmer.sql.TypedTransientResolver;
+import org.babyfish.jimmer.sql.cache.PropCacheInvalidator;
 import org.babyfish.jimmer.sql.cache.TransactionCacheOperator;
+import org.babyfish.jimmer.sql.cache.caffeine.CaffeineHashBinder;
+import org.babyfish.jimmer.sql.cache.caffeine.CaffeineValueBinder;
+import org.babyfish.jimmer.sql.event.AssociationEvent;
+import org.babyfish.jimmer.sql.event.EntityEvent;
 import org.babyfish.jimmer.sql.event.TriggerType;
+import org.babyfish.jimmer.sql.filter.CacheableFilter;
+import org.babyfish.jimmer.sql.filter.Filter;
+import org.babyfish.jimmer.sql.filter.ShardingCacheableFilter;
+import org.babyfish.jimmer.sql.filter.ShardingFilter;
 import org.babyfish.jimmer.sql.fetcher.Fetcher;
 import org.babyfish.jimmer.sql.kt.KSqlClient;
 import org.jboss.jandex.*;
@@ -720,6 +730,72 @@ final class JimmerProcessor {
                         UUIDIdGenerator.class)
                         .constructors(true)
                         .build());
+    }
+
+    /**
+     * Cache subsystem reflection. Without this on native image, FilterManager.onInitialized
+     * triggers PropCacheInvalidators.isGetAffectedSourceIdsOverridden0 which does
+     * Class.getMethod("getAffectedSourceIds", EntityEvent.class) and fails with
+     * NoSuchMethodException → AssertionError. Caffeine binders' anonymous CacheLoader
+     * subclasses also need methods kept so Caffeine can detect loadAll override.
+     */
+    @BuildStep
+    void registerCacheReflection(
+            CombinedIndexBuildItem combinedIndex,
+            BuildProducer<ReflectiveClassBuildItem> reflectiveClass) {
+        // Event types + filter/resolver interfaces with default methods that
+        // PropCacheInvalidators dispatches via Class.getMethod(...) reflection.
+        reflectiveClass.produce(ReflectiveClassBuildItem
+                .builder(
+                        EntityEvent.class,
+                        AssociationEvent.class,
+                        PropCacheInvalidator.class,
+                        Filter.class,
+                        CacheableFilter.class,
+                        ShardingFilter.class,
+                        ShardingCacheableFilter.class,
+                        TransientResolver.class,
+                        TypedTransientResolver.class,
+                        CaffeineValueBinder.class,
+                        CaffeineHashBinder.class,
+                        com.github.benmanes.caffeine.cache.CacheLoader.class)
+                .methods(true)
+                .build());
+
+        // Package-private jimmer-sql impls created for @LogicalDeleted / FilterManager —
+        // not reachable via .class from outside their package.
+        reflectiveClass.produce(ReflectiveClassBuildItem
+                .builder(
+                        "org.babyfish.jimmer.sql.filter.impl.LogicalDeletedFilterProvider$DefaultFilter",
+                        "org.babyfish.jimmer.sql.filter.impl.LogicalDeletedFilterProvider$IgnoredFilter",
+                        "org.babyfish.jimmer.sql.filter.impl.LogicalDeletedFilterProvider$ReversedFilter",
+                        "org.babyfish.jimmer.sql.filter.impl.FilterManager$ExportedCacheableFilter",
+                        "org.babyfish.jimmer.sql.filter.impl.FilterManager$ExportedFilter",
+                        // Anonymous CacheLoader subclass inside CaffeineValueBinder
+                        "org.babyfish.jimmer.sql.cache.caffeine.CaffeineValueBinder$1")
+                .methods(true)
+                .constructors(true)
+                .build());
+
+        // User-defined CacheableFilter / TransientResolver / PropCacheInvalidator impls.
+        IndexView index = combinedIndex.getIndex();
+        Set<String> userImpls = new HashSet<>();
+        for (DotName iface : List.of(
+                DotName.createSimple(PropCacheInvalidator.class),
+                DotName.createSimple(CacheableFilter.class),
+                DotName.createSimple(Filter.class),
+                DotName.createSimple(TransientResolver.class))) {
+            for (ClassInfo impl : index.getAllKnownImplementors(iface)) {
+                userImpls.add(impl.name().toString());
+            }
+        }
+        if (!userImpls.isEmpty()) {
+            reflectiveClass.produce(ReflectiveClassBuildItem
+                    .builder(userImpls.toArray(new String[0]))
+                    .methods(true)
+                    .constructors(true)
+                    .build());
+        }
     }
 
     @BuildStep
