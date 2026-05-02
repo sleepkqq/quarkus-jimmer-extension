@@ -1,6 +1,6 @@
 [versions]
 quarkus = "3.32.3"
-kotlin = "2.3.20"
+kotlin = "2.3.21"
 jimmer = "0.10.7"
 redisson = "3.38.0"
 testcontainers = "2.0.3"
