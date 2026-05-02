@@ -25,4 +25,4 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Build & Test
-        run: ./gradlew build --parallel --build-cache
+        run: ./gradlew build --build-cache
