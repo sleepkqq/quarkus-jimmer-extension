@@ -18,15 +18,8 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
 
     private final DataSource dataSource;
 
-    private final String defaultSchema;
-
     public QuarkusConnectionManager(DataSource dataSource) {
-        this(dataSource, null);
-    }
-
-    public QuarkusConnectionManager(DataSource dataSource, String defaultSchema) {
         this.dataSource = dataSource;
-        this.defaultSchema = defaultSchema;
     }
 
     @NotNull
@@ -43,10 +36,10 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
     @Override
     public final <R> R execute(@Nullable Connection con, Function<Connection, R> block) {
         if (null != con) {
-            return block.apply(SchemaAwareConnectionWrapper.wrap(con, defaultSchema));
+            return block.apply(con);
         }
         try (Connection newConnection = dataSource.getConnection()) {
-            return block.apply(SchemaAwareConnectionWrapper.wrap(newConnection, defaultSchema));
+            return block.apply(newConnection);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

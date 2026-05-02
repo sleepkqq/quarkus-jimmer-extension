@@ -213,14 +213,12 @@ class JQuarkusSqlClient extends JLazyInitializationSqlClient {
             block.accept(builder);
         }
 
-        String defaultSchema = runtimeConfig.dataSources().get(dataSourceName).defaultSchema().orElse(null);
-
         ConnectionManager connectionManager = ObjectUtil.firstNonNullOf(
                 () -> ((JSqlClientImplementor.Builder) builder).getConnectionManager(),
                 () -> getOptionalBean(ConnectionManager.class),
                 () -> dataSource == null ? null
-                        : new QuarkusConnectionManager(dataSource, defaultSchema),
-                () -> new QuarkusConnectionManager(getOptionalBean(DataSource.class), defaultSchema));
+                        : new QuarkusConnectionManager(dataSource),
+                () -> new QuarkusConnectionManager(getOptionalBean(DataSource.class)));
 
         builder.setConnectionManager(connectionManager);
 

@@ -24,7 +24,7 @@ Java/Kotlin target: JDK 21. Gradle 9.4.0.
 ## Key Versions (libs.versions.toml)
 
 - Quarkus: 3.32.3
-- Jimmer: 0.10.6
+- Jimmer: 0.10.7
 - Kotlin: 2.3.20
 
 ## Deployment vs Runtime
@@ -38,7 +38,7 @@ Java/Kotlin target: JDK 21. Gradle 9.4.0.
 |---|---|
 | `io.quarkiverse.jimmer.runtime` | `JQuarkusSqlClient`, `SqlClients.kt`, `Jimmer` accessor, recorders |
 | `runtime.cfg` | `JimmerBuildTimeConfig`, `JimmerRuntimeConfig`, `JimmerDataSourceRuntimeConfig` |
-| `runtime.cfg.support` | `QuarkusConnectionManager`, `SchemaAwareConnectionWrapper` |
+| `runtime.cfg.support` | `QuarkusConnectionManager` |
 | `runtime.repository` | `JRepository<E, ID>`, `JRepositoryImpl` |
 | `runtime.repo` | `AbstractJavaRepository`, `AbstractKotlinRepository` |
 | `runtime.cache.impl` | `TransactionCacheOperatorFlusher` |
@@ -62,7 +62,7 @@ Java/Kotlin target: JDK 21. Gradle 9.4.0.
 3. `JQuarkusSqlClient.createBuilder()` configures JSqlClient.Builder:
    - Resolves dialect, schema, connection manager
    - Sets up triggers, caching, DI providers
-   - Wraps connections via `QuarkusConnectionManager` (with `SchemaAwareConnectionWrapper` for schema-qualified SQL)
+   - Wraps connections via `QuarkusConnectionManager`
 4. Multi-datasource: beans qualified with `@DataSource("name")`
 
 ## Repository Pattern
