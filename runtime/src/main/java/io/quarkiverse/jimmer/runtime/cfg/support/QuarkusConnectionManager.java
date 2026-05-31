@@ -11,6 +11,7 @@ import org.babyfish.jimmer.sql.transaction.TxConnectionManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import io.quarkus.arc.Arc;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.narayana.jta.TransactionRunnerOptions;
 import jakarta.transaction.Status;
@@ -28,12 +29,10 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
     private final TransactionManager transactionManager;
     private final TransactionSynchronizationRegistry tsr;
 
-    public QuarkusConnectionManager(DataSource dataSource,
-            TransactionManager transactionManager,
-            TransactionSynchronizationRegistry tsr) {
+    public QuarkusConnectionManager(DataSource dataSource) {
         this.dataSource = dataSource;
-        this.transactionManager = transactionManager;
-        this.tsr = tsr;
+        this.transactionManager = Arc.container().instance(TransactionManager.class).get();
+        this.tsr = Arc.container().instance(TransactionSynchronizationRegistry.class).get();
     }
 
     @NotNull
