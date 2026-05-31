@@ -217,8 +217,8 @@ class JQuarkusSqlClient extends JLazyInitializationSqlClient {
                 () -> ((JSqlClientImplementor.Builder) builder).getConnectionManager(),
                 () -> getOptionalBean(ConnectionManager.class),
                 () -> dataSource == null ? null
-                        : new QuarkusConnectionManager(dataSource),
-                () -> new QuarkusConnectionManager(getOptionalBean(DataSource.class)));
+                        : new QuarkusConnectionManager(dataSource, getTxManager(), getTsr()),
+                () -> new QuarkusConnectionManager(getOptionalBean(DataSource.class), getTxManager(), getTsr()));
 
         builder.setConnectionManager(connectionManager);
 
@@ -315,6 +315,14 @@ class JQuarkusSqlClient extends JLazyInitializationSqlClient {
                     .get();
         }
         return null;
+    }
+
+    private jakarta.transaction.TransactionManager getTxManager() {
+        return container.instance(jakarta.transaction.TransactionManager.class).get();
+    }
+
+    private jakarta.transaction.TransactionSynchronizationRegistry getTsr() {
+        return container.instance(jakarta.transaction.TransactionSynchronizationRegistry.class).get();
     }
 
     @SuppressWarnings("unchecked")

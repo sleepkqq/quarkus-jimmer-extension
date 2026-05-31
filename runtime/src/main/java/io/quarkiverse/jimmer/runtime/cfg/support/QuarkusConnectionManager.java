@@ -13,13 +13,27 @@ import org.jetbrains.annotations.Nullable;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.narayana.jta.TransactionRunnerOptions;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.Transaction;
+import jakarta.transaction.TransactionManager;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 
 public class QuarkusConnectionManager implements DataSourceAwareConnectionManager, TxConnectionManager {
 
-    private final DataSource dataSource;
+    private static final ThreadLocal<Connection> TX_CONNECTION = new ThreadLocal<>();
 
-    public QuarkusConnectionManager(DataSource dataSource) {
+    private final DataSource dataSource;
+    private final TransactionManager transactionManager;
+    private final TransactionSynchronizationRegistry tsr;
+
+    public QuarkusConnectionManager(DataSource dataSource,
+            TransactionManager transactionManager,
+            TransactionSynchronizationRegistry tsr) {
         this.dataSource = dataSource;
+        this.transactionManager = transactionManager;
+        this.tsr = tsr;
     }
 
     @NotNull
@@ -38,6 +52,42 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
         if (null != con) {
             return block.apply(con);
         }
+
+        Connection txConn = TX_CONNECTION.get();
+        if (txConn != null) {
+            return block.apply(txConn);
+        }
+
+        if (isTransactionActive()) {
+            Connection conn;
+            try {
+                conn = dataSource.getConnection();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+            TX_CONNECTION.set(conn);
+            try {
+                tsr.registerInterposedSynchronization(new Synchronization() {
+                    @Override
+                    public void beforeCompletion() {
+                    }
+
+                    @Override
+                    public void afterCompletion(int status) {
+                        TX_CONNECTION.remove();
+                    }
+                });
+            } catch (Exception e) {
+                TX_CONNECTION.remove();
+                try {
+                    conn.close();
+                } catch (SQLException ignored) {
+                }
+                throw new RuntimeException(e);
+            }
+            return block.apply(conn);
+        }
+
         try (Connection newConnection = dataSource.getConnection()) {
             return block.apply(newConnection);
         } catch (SQLException e) {
@@ -49,6 +99,15 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
     public <R> R executeTransaction(Propagation propagation, Function<Connection, R> block) {
         TransactionRunnerOptions transactionRunnerOptions = behavior(propagation);
         return transactionRunnerOptions.call(() -> execute(block));
+    }
+
+    private boolean isTransactionActive() {
+        try {
+            Transaction tx = transactionManager.getTransaction();
+            return tx != null && tx.getStatus() == Status.STATUS_ACTIVE;
+        } catch (SystemException e) {
+            return false;
+        }
     }
 
     private TransactionRunnerOptions behavior(Propagation propagation) {
@@ -64,7 +123,6 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
             case NEVER:
                 throw new UnsupportedOperationException("Quarkus does not support NEVER");
             default:
-                // REQUIRED:
                 return QuarkusTransaction.joiningExisting();
         }
     }
