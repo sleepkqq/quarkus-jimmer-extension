@@ -14,31 +14,16 @@ import org.jetbrains.annotations.Nullable;
 import io.quarkus.arc.Arc;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.narayana.jta.TransactionRunnerOptions;
-import jakarta.transaction.Status;
-import jakarta.transaction.Synchronization;
-import jakarta.transaction.SystemException;
-import jakarta.transaction.Transaction;
 import jakarta.transaction.TransactionManager;
-import jakarta.transaction.TransactionSynchronizationRegistry;
 
 public class QuarkusConnectionManager implements DataSourceAwareConnectionManager, TxConnectionManager {
 
-    // Per-instance key: scopes the cached connection to (this datasource × current JTA transaction).
-    // TSR.getResource/putResource binds the value to the current transaction and discards it
-    // automatically on commit/rollback — no manual cleanup needed.
-    // This replaces the former static ThreadLocal which was shared across all datasource managers,
-    // causing connection bleed when multiple datasources were used in one transaction, and incorrect
-    // connection reuse when REQUIRES_NEW / NOT_SUPPORTED suspended the outer transaction.
-    private final Object connectionKey = new Object();
-
     private final DataSource dataSource;
     private final TransactionManager transactionManager;
-    private final TransactionSynchronizationRegistry tsr;
 
     public QuarkusConnectionManager(DataSource dataSource) {
         this.dataSource = dataSource;
         this.transactionManager = Arc.container().instance(TransactionManager.class).get();
-        this.tsr = Arc.container().instance(TransactionSynchronizationRegistry.class).get();
     }
 
     @NotNull
@@ -58,34 +43,6 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
             return block.apply(con);
         }
 
-        if (isTransactionActive()) {
-            Connection txConn = (Connection) tsr.getResource(connectionKey);
-            if (txConn != null) {
-                return block.apply(txConn);
-            }
-            Connection conn;
-            try {
-                conn = dataSource.getConnection();
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            tsr.putResource(connectionKey, conn);
-            tsr.registerInterposedSynchronization(new Synchronization() {
-                @Override
-                public void beforeCompletion() {
-                    try {
-                        conn.close();
-                    } catch (SQLException ignored) {
-                    }
-                }
-
-                @Override
-                public void afterCompletion(int status) {
-                }
-            });
-            return block.apply(conn);
-        }
-
         try (Connection newConnection = dataSource.getConnection()) {
             return block.apply(newConnection);
         } catch (SQLException e) {
@@ -97,15 +54,6 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
     public <R> R executeTransaction(Propagation propagation, Function<Connection, R> block) {
         TransactionRunnerOptions transactionRunnerOptions = behavior(propagation);
         return transactionRunnerOptions.call(() -> execute(block));
-    }
-
-    private boolean isTransactionActive() {
-        try {
-            Transaction tx = transactionManager.getTransaction();
-            return tx != null && tx.getStatus() == Status.STATUS_ACTIVE;
-        } catch (SystemException e) {
-            return false;
-        }
     }
 
     private TransactionRunnerOptions behavior(Propagation propagation) {
