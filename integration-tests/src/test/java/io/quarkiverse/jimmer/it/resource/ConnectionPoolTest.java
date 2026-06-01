@@ -134,4 +134,48 @@ class ConnectionPoolTest {
 		assertEquals(activeBefore, agroalDataSource.getMetrics().activeCount(),
 				"No connection leaks after " + threads * txPerThread + " concurrent transactions");
 	}
+
+	@Test
+	void poolNotExhaustedWithManyOpsPerTxUnderConcurrency() throws InterruptedException {
+		// 6 threads each running 3 ops per TX simultaneously.
+		// Pool max-size=8. Without single-connection-per-TX guarantee each thread would
+		// need 3 connections → 18 total → pool exhausted after ~2 threads.
+		// Passing proves the connection manager reuses one connection per JTA TX.
+		int threads = 6;
+		int opsPerTx = 3;
+		CountDownLatch start = new CountDownLatch(1);
+		CountDownLatch done = new CountDownLatch(threads);
+		AtomicReference<String> error = new AtomicReference<>();
+		ExecutorService executor = Executors.newFixedThreadPool(threads);
+
+		for (int i = 0; i < threads; i++) {
+			executor.submit(() -> {
+				try {
+					start.await();
+					QuarkusTransaction.requiringNew().run(() -> {
+						for (int j = 0; j < opsPerTx; j++) {
+							bookRepository.findAll();
+							bookStoreRepository.findAll();
+							treeNodeRepository.findAll();
+						}
+					});
+				} catch (Exception e) {
+					error.set(e.getMessage());
+				} finally {
+					done.countDown();
+				}
+			});
+		}
+
+		start.countDown();
+		assertTrue(done.await(30, TimeUnit.SECONDS), "Concurrent high-op transactions timed out");
+		executor.shutdown();
+
+		if (error.get() != null) {
+			throw new AssertionError("Pool exhausted or error under concurrent multi-op TX: " + error.get());
+		}
+
+		assertEquals(activeBefore, agroalDataSource.getMetrics().activeCount(),
+				"No connection leaks after concurrent high-op transactions");
+	}
 }
