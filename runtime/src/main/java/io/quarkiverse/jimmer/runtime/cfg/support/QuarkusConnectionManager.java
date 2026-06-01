@@ -15,7 +15,6 @@ import io.quarkus.arc.Arc;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.narayana.jta.TransactionRunnerOptions;
 import jakarta.transaction.Status;
-import jakarta.transaction.Synchronization;
 import jakarta.transaction.SystemException;
 import jakarta.transaction.Transaction;
 import jakarta.transaction.TransactionManager;
@@ -23,7 +22,13 @@ import jakarta.transaction.TransactionSynchronizationRegistry;
 
 public class QuarkusConnectionManager implements DataSourceAwareConnectionManager, TxConnectionManager {
 
-    private static final ThreadLocal<Connection> TX_CONNECTION = new ThreadLocal<>();
+    // Per-instance key: scopes the cached connection to (this datasource × current JTA transaction).
+    // TSR.getResource/putResource binds the value to the current transaction and discards it
+    // automatically on commit/rollback — no manual cleanup needed.
+    // This replaces the former static ThreadLocal which was shared across all datasource managers,
+    // causing connection bleed when multiple datasources were used in one transaction, and incorrect
+    // connection reuse when REQUIRES_NEW / NOT_SUPPORTED suspended the outer transaction.
+    private final Object connectionKey = new Object();
 
     private final DataSource dataSource;
     private final TransactionManager transactionManager;
@@ -52,38 +57,18 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
             return block.apply(con);
         }
 
-        Connection txConn = TX_CONNECTION.get();
-        if (txConn != null) {
-            return block.apply(txConn);
-        }
-
         if (isTransactionActive()) {
+            Connection txConn = (Connection) tsr.getResource(connectionKey);
+            if (txConn != null) {
+                return block.apply(txConn);
+            }
             Connection conn;
             try {
                 conn = dataSource.getConnection();
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
-            TX_CONNECTION.set(conn);
-            try {
-                tsr.registerInterposedSynchronization(new Synchronization() {
-                    @Override
-                    public void beforeCompletion() {
-                    }
-
-                    @Override
-                    public void afterCompletion(int status) {
-                        TX_CONNECTION.remove();
-                    }
-                });
-            } catch (Exception e) {
-                TX_CONNECTION.remove();
-                try {
-                    conn.close();
-                } catch (SQLException ignored) {
-                }
-                throw new RuntimeException(e);
-            }
+            tsr.putResource(connectionKey, conn);
             return block.apply(conn);
         }
 
