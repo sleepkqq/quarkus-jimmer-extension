@@ -30,20 +30,20 @@ public class AppLifecycleBean {
 
     void onStart(@Observes StartupEvent ev) throws Exception {
         LOGGER.info("The application is starting...");
-        this.initH2DB1();
-        this.initH2DB2();
+        this.initDB1();
+        this.initDB2();
     }
 
     void onStop(@Observes ShutdownEvent ev) {
         LOGGER.info("The application is stopping...");
     }
 
-    private void initH2DB1() throws Exception {
-        this.readResource(agroalDataSource, "h2-database.sql");
+    private void initDB1() throws Exception {
+        this.readResource(agroalDataSource, "pg-database.sql");
     }
 
-    private void initH2DB2() throws Exception {
-        this.readResource(agroalDataSourceDB2, "h2-database2.sql");
+    private void initDB2() throws Exception {
+        this.readResource(agroalDataSourceDB2, "pg-database2.sql");
     }
 
     private void readResource(AgroalDataSource agroalDataSource, String resourceName) throws Exception {
@@ -63,7 +63,12 @@ public class AppLifecycleBean {
                     builder.append(buf, 0, len);
                 }
                 try (Statement statement = connection.createStatement()) {
-                    statement.execute(builder.toString());
+                    for (String sql : builder.toString().split(";")) {
+                        String trimmed = sql.strip();
+                        if (!trimmed.isEmpty()) {
+                            statement.execute(trimmed);
+                        }
+                    }
                 }
             }
         }
