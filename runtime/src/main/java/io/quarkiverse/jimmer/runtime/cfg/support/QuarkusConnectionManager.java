@@ -15,6 +15,7 @@ import io.quarkus.arc.Arc;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.narayana.jta.TransactionRunnerOptions;
 import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
 import jakarta.transaction.SystemException;
 import jakarta.transaction.Transaction;
 import jakarta.transaction.TransactionManager;
@@ -69,6 +70,19 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
                 throw new RuntimeException(e);
             }
             tsr.putResource(connectionKey, conn);
+            tsr.registerInterposedSynchronization(new Synchronization() {
+                @Override
+                public void beforeCompletion() {
+                    try {
+                        conn.close();
+                    } catch (SQLException ignored) {
+                    }
+                }
+
+                @Override
+                public void afterCompletion(int status) {
+                }
+            });
             return block.apply(conn);
         }
 
