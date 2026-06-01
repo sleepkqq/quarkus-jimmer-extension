@@ -12,6 +12,7 @@ public class JimmerTest {
 
     // Start unit test with your extension loaded
     @RegisterExtension
+    @SuppressWarnings("removal")
     static final QuarkusUnitTest unitTest = new QuarkusUnitTest()
             .overrideConfigKey("quarkus.redis.hosts", "redis://localhost:6379")
             .setArchiveProducer(() -> ShrinkWrap.create(JavaArchive.class));
