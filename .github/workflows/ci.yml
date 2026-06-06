@@ -25,4 +25,7 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Build & Test
-        run: ./gradlew build --build-cache
+        run: |
+          docker pull postgres:16.2 &
+          docker pull redis:7-alpine &
+          ./gradlew build --build-cache

@@ -2,6 +2,19 @@ plugins {
 	alias(libs.plugins.quarkus)
 }
 
+configurations.all {
+	exclude(group = "io.quarkus", module = "quarkus-devservices-h2")
+	exclude(group = "io.quarkus", module = "quarkus-jdbc-h2-deployment")
+	exclude(group = "com.h2database", module = "h2")
+}
+
+tasks.test {
+	systemProperty("java.util.logging.manager", "org.jboss.logmanager.LogManager")
+	testLogging {
+		showStandardStreams = true
+	}
+}
+
 dependencies {
 	implementation(enforcedPlatform(libs.quarkus.bom))
 
@@ -9,13 +22,12 @@ dependencies {
 	implementation(libs.quarkus.rest.jackson)
 	implementation(libs.quarkus.config.yaml)
 	implementation(libs.quarkus.vertx)
-	implementation(libs.quarkus.undertow)
 	implementation(libs.quarkus.redis.client)
 	implementation(libs.quarkus.caffeine)
 
 	implementation(project(":quarkus-jimmer"))
 
-	runtimeOnly(libs.quarkus.jdbc.h2)
+	runtimeOnly(libs.quarkus.jdbc.postgresql)
 
 	implementation(libs.redisson.quarkus)
 
@@ -25,4 +37,5 @@ dependencies {
 	testImplementation(libs.rest.assured)
 	testImplementation(libs.testcontainers)
 	testImplementation(libs.testcontainers.junit)
+	testImplementation(libs.testcontainers.postgresql)
 }
