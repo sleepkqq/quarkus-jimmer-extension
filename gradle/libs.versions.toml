@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.3.21"
 quarkus = "3.36.0"
-jimmer = "0.10.7"
+jimmer = "0.10.10"
 redisson = "4.4.0"
 testcontainers = "2.0.5"
 junit = "5.12.1"
