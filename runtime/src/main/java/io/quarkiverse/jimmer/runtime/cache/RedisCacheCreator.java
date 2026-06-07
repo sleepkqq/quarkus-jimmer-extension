@@ -105,9 +105,8 @@ public class RedisCacheCreator extends AbstractCacheCreator {
     private <K, V> SimpleBinder<K, V> redisValueBinder(ImmutableType type) {
         Args args = args();
         return RedisValueBinder
-                .<K, V> forObject(type)
+                .<K, V> forObject(type, args.jsonCodec)
                 .publish(args.tracker)
-                .jsonCodec(args.jsonCodec)
                 .keyPrefixProvider(args.keyPrefixProvider)
                 .duration(args.duration)
                 .randomPercent(args.randomDurationPercent)
@@ -119,9 +118,8 @@ public class RedisCacheCreator extends AbstractCacheCreator {
     private <K, V> SimpleBinder<K, V> redisValueBinder(ImmutableProp prop) {
         Args args = args();
         return RedisValueBinder
-                .<K, V> forProp(prop)
+                .<K, V> forProp(prop, args.jsonCodec)
                 .publish(args.tracker)
-                .jsonCodec(args.jsonCodec)
                 .keyPrefixProvider(args.keyPrefixProvider)
                 .duration(args.duration)
                 .randomPercent(args.randomDurationPercent)
@@ -133,9 +131,8 @@ public class RedisCacheCreator extends AbstractCacheCreator {
     private <K, V> SimpleBinder.Parameterized<K, V> redisHashBinder(ImmutableProp prop) {
         Args args = args();
         return RedisHashBinder
-                .<K, V> forProp(prop)
+                .<K, V> forProp(prop, args.jsonCodec)
                 .publish(args.tracker)
-                .jsonCodec(args.jsonCodec)
                 .keyPrefixProvider(args.keyPrefixProvider)
                 .duration(args.multiVewDuration)
                 .randomPercent(args.randomDurationPercent)

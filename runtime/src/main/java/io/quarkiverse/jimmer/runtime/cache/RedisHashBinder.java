@@ -83,16 +83,16 @@ public class RedisHashBinder<K, V> extends AbstractRemoteHashBinder<K, V> {
     }
 
     @NotNull
-    public static <K, V> Builder<K, V> forProp(ImmutableProp prop) {
-        return new Builder<>(null, prop);
+    public static <K, V> Builder<K, V> forProp(ImmutableProp prop, @Nullable JsonCodec<?> jsonCodec) {
+        return new Builder<>(null, prop, jsonCodec);
     }
 
     public static class Builder<K, V> extends AbstractBuilder<K, V, Builder<K, V>> {
 
         private RedisDataSource redisDataSource;
 
-        protected Builder(ImmutableType type, ImmutableProp prop) {
-            super(type, prop);
+        protected Builder(ImmutableType type, ImmutableProp prop, @Nullable JsonCodec<?> jsonCodec) {
+            super(type, prop, jsonCodec);
         }
 
         public Builder<K, V> redis(RedisDataSource redisDataSource) {
