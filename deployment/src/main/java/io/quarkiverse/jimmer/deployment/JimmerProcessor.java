@@ -11,6 +11,10 @@ import jakarta.ws.rs.Priorities;
 import org.babyfish.jimmer.Draft;
 import org.babyfish.jimmer.Input;
 import org.babyfish.jimmer.View;
+import org.babyfish.jimmer.impl.util.ClassCache;
+import org.babyfish.jimmer.impl.util.PropCache;
+import org.babyfish.jimmer.impl.util.StaticCache;
+import org.babyfish.jimmer.impl.util.TypeCache;
 import org.babyfish.jimmer.error.CodeBasedException;
 import org.babyfish.jimmer.error.CodeBasedRuntimeException;
 import org.babyfish.jimmer.sql.Entity;
@@ -709,16 +713,8 @@ final class JimmerProcessor {
 
     @BuildStep
     void runtimeInitializeJimmerCaches(BuildProducer<RuntimeInitializedClassBuildItem> runtimeInitialized) {
-        // StaticCache and siblings hold a ReentrantReadWriteLock as an instance field.
-        // GraalVM's ForkJoinPool accesses them concurrently during image build, causing
-        // a lock-ordering deadlock. Deferring to runtime ensures locks are freshly constructed.
-        for (String clazz : new String[]{
-                "org.babyfish.jimmer.impl.util.StaticCache",
-                "org.babyfish.jimmer.impl.util.ClassCache",
-                "org.babyfish.jimmer.impl.util.TypeCache",
-                "org.babyfish.jimmer.impl.util.PropCache",
-        }) {
-            runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(clazz));
+        for (Class<?> clazz : new Class<?>[]{StaticCache.class, ClassCache.class, TypeCache.class, PropCache.class}) {
+            runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(clazz.getName()));
         }
     }
 
