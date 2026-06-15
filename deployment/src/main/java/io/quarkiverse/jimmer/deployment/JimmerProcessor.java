@@ -80,6 +80,7 @@ import io.quarkus.deployment.builditem.*;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveHierarchyIgnoreWarningBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.RuntimeInitializedClassBuildItem;
 import io.quarkus.deployment.logging.LoggingSetupBuildItem;
 import io.quarkus.deployment.util.JandexUtil;
 import io.quarkus.gizmo.ClassOutput;
@@ -703,6 +704,21 @@ final class JimmerProcessor {
             JimmerRepositoryFactory jimmerRepositoryFactory = new JimmerRepositoryFactory(metadata);
             classOutput.write(jimmerRepositoryFactory.getTargetRepositoryClass().getName(),
                     jimmerRepositoryFactory.getTargetRepositoryBytes());
+        }
+    }
+
+    @BuildStep
+    void runtimeInitializeJimmerCaches(BuildProducer<RuntimeInitializedClassBuildItem> runtimeInitialized) {
+        // StaticCache and siblings hold a ReentrantReadWriteLock as an instance field.
+        // GraalVM's ForkJoinPool accesses them concurrently during image build, causing
+        // a lock-ordering deadlock. Deferring to runtime ensures locks are freshly constructed.
+        for (String clazz : new String[]{
+                "org.babyfish.jimmer.impl.util.StaticCache",
+                "org.babyfish.jimmer.impl.util.ClassCache",
+                "org.babyfish.jimmer.impl.util.TypeCache",
+                "org.babyfish.jimmer.impl.util.PropCache",
+        }) {
+            runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(clazz));
         }
     }
 
