@@ -892,6 +892,54 @@ final class JimmerProcessor {
         }
     }
 
+    /**
+     * Kotlin reflection reads every annotation on an entity property when Jimmer builds metadata at
+     * run time, and to do so it resolves each annotation's member types. Jimmer's @JoinTable nests
+     * the JoinTableFilter / LogicalDeletedFilter annotation types, which are otherwise unreachable in
+     * the native image, so kotlin-reflect fails with "Type not found". Register the whole Jimmer SQL
+     * annotation surface (and the nested ones) for reflection so those member types stay available.
+     */
+    @BuildStep
+    void registerJimmerAnnotationsForReflection(BuildProducer<ReflectiveClassBuildItem> reflectiveClass) {
+        reflectiveClass.produce(ReflectiveClassBuildItem.builder(
+                "org.babyfish.jimmer.sql.Column",
+                "org.babyfish.jimmer.sql.Default",
+                "org.babyfish.jimmer.sql.Embeddable",
+                "org.babyfish.jimmer.sql.Entity",
+                "org.babyfish.jimmer.sql.EnumItem",
+                "org.babyfish.jimmer.sql.EnumType",
+                "org.babyfish.jimmer.sql.GeneratedValue",
+                "org.babyfish.jimmer.sql.Id",
+                "org.babyfish.jimmer.sql.IdView",
+                "org.babyfish.jimmer.sql.JoinColumn",
+                "org.babyfish.jimmer.sql.JoinColumns",
+                "org.babyfish.jimmer.sql.JoinSql",
+                "org.babyfish.jimmer.sql.JoinTable",
+                "org.babyfish.jimmer.sql.JoinTable$JoinTableFilter",
+                "org.babyfish.jimmer.sql.JoinTable$LogicalDeletedFilter",
+                "org.babyfish.jimmer.sql.Key",
+                "org.babyfish.jimmer.sql.Keys",
+                "org.babyfish.jimmer.sql.KeyUniqueConstraint",
+                "org.babyfish.jimmer.sql.LogicalDeleted",
+                "org.babyfish.jimmer.sql.ManyToMany",
+                "org.babyfish.jimmer.sql.ManyToManyView",
+                "org.babyfish.jimmer.sql.ManyToOne",
+                "org.babyfish.jimmer.sql.MappedSuperclass",
+                "org.babyfish.jimmer.sql.MapsId",
+                "org.babyfish.jimmer.sql.OnDissociate",
+                "org.babyfish.jimmer.sql.OneToMany",
+                "org.babyfish.jimmer.sql.OneToOne",
+                "org.babyfish.jimmer.sql.OrderedProp",
+                "org.babyfish.jimmer.sql.PropOverride",
+                "org.babyfish.jimmer.sql.PropOverrides",
+                "org.babyfish.jimmer.sql.Serialized",
+                "org.babyfish.jimmer.sql.Table",
+                "org.babyfish.jimmer.sql.Transient",
+                "org.babyfish.jimmer.sql.Version")
+                .methods(true)
+                .build());
+    }
+
     private void collectEnumTypesFromEntities(IndexView index, Set<String> enumClassNames) {
         for (DotName annotation : ENTITY_ANNOTATIONS) {
             for (AnnotationInstance instance : index.getAnnotations(annotation)) {
