@@ -746,7 +746,9 @@ final class JimmerProcessor {
                 "org.babyfish.jimmer.sql.cache.ObjectCacheFetchers",
                 "org.babyfish.jimmer.sql.runtime.ScalarProvider$Meta",
                 "org.babyfish.jimmer.sql.ast.impl.table.WeakJoinHandleImpl",
-                "org.babyfish.jimmer.sql.ast.impl.table.WeakJoinHandleImpl$EntityTableHandleImpl"}) {
+                "org.babyfish.jimmer.sql.ast.impl.table.WeakJoinHandleImpl$EntityTableHandleImpl",
+                "org.babyfish.jimmer.error.ClientExceptionMetadata",
+                "org.babyfish.jimmer.error.ClientExceptionMetadata$Cache"}) {
             runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(className));
         }
     }
