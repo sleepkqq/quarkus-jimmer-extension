@@ -742,6 +742,13 @@ final class JimmerProcessor {
                 TableProxies.class}) {
             runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(clazz.getName()));
         }
+        for (String className : new String[]{
+                "org.babyfish.jimmer.sql.cache.ObjectCacheFetchers",
+                "org.babyfish.jimmer.sql.runtime.ScalarProvider$Meta",
+                "org.babyfish.jimmer.sql.ast.impl.table.WeakJoinHandleImpl",
+                "org.babyfish.jimmer.sql.ast.impl.table.WeakJoinHandleImpl$EntityTableHandleImpl"}) {
+            runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(className));
+        }
     }
 
     /**
