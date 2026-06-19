@@ -15,8 +15,16 @@ import org.babyfish.jimmer.impl.util.ClassCache;
 import org.babyfish.jimmer.impl.util.PropCache;
 import org.babyfish.jimmer.impl.util.StaticCache;
 import org.babyfish.jimmer.impl.util.TypeCache;
+import org.babyfish.jimmer.jackson.ConverterMetadata;
+import org.babyfish.jimmer.meta.impl.Metadata;
 import org.babyfish.jimmer.error.CodeBasedException;
 import org.babyfish.jimmer.error.CodeBasedRuntimeException;
+import org.babyfish.jimmer.sql.association.meta.AssociationType;
+import org.babyfish.jimmer.sql.ast.impl.table.AssociationTableProxyImpl;
+import org.babyfish.jimmer.sql.ast.impl.table.TableProxies;
+import org.babyfish.jimmer.sql.cache.CacheLoader;
+import org.babyfish.jimmer.sql.fetcher.DtoMetadata;
+import org.babyfish.jimmer.sql.runtime.ScalarProvider;
 import org.babyfish.jimmer.sql.Entity;
 import org.babyfish.jimmer.sql.JSqlClient;
 import org.babyfish.jimmer.sql.MappedSuperclass;
@@ -714,6 +722,27 @@ final class JimmerProcessor {
     @BuildStep
     void runtimeInitializeJimmerCaches(BuildProducer<RuntimeInitializedClassBuildItem> runtimeInitialized) {
         for (Class<?> clazz : new Class<?>[]{StaticCache.class, ClassCache.class, TypeCache.class, PropCache.class}) {
+            runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(clazz.getName()));
+        }
+    }
+
+    /**
+     * Classes that hold a static cache (ClassCache/StaticCache/TypeCache/PropCache). If they are
+     * build-time initialized their cache instance is baked into the image heap, which clashes with
+     * the run-time initialization of the cache types above and fails the native build (e.g.
+     * DtoMetadata.cache reached via a Jackson-registered Jimmer Input DTO). Defer their init too.
+     */
+    @BuildStep
+    void runtimeInitializeJimmerCacheHolders(BuildProducer<RuntimeInitializedClassBuildItem> runtimeInitialized) {
+        for (Class<?> clazz : new Class<?>[]{
+                Metadata.class,
+                ConverterMetadata.class,
+                DtoMetadata.class,
+                AssociationType.class,
+                ScalarProvider.class,
+                CacheLoader.class,
+                AssociationTableProxyImpl.class,
+                TableProxies.class}) {
             runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(clazz.getName()));
         }
     }
