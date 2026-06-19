@@ -13,6 +13,18 @@ import org.babyfish.jimmer.Input;
 import org.babyfish.jimmer.View;
 import org.babyfish.jimmer.error.CodeBasedException;
 import org.babyfish.jimmer.error.CodeBasedRuntimeException;
+import org.babyfish.jimmer.impl.util.ClassCache;
+import org.babyfish.jimmer.impl.util.PropCache;
+import org.babyfish.jimmer.impl.util.StaticCache;
+import org.babyfish.jimmer.impl.util.TypeCache;
+import org.babyfish.jimmer.jackson.ConverterMetadata;
+import org.babyfish.jimmer.meta.impl.Metadata;
+import org.babyfish.jimmer.sql.association.meta.AssociationType;
+import org.babyfish.jimmer.sql.ast.impl.table.AssociationTableProxyImpl;
+import org.babyfish.jimmer.sql.ast.impl.table.TableProxies;
+import org.babyfish.jimmer.sql.cache.CacheLoader;
+import org.babyfish.jimmer.sql.fetcher.DtoMetadata;
+import org.babyfish.jimmer.sql.runtime.ScalarProvider;
 import org.babyfish.jimmer.sql.Entity;
 import org.babyfish.jimmer.sql.JSqlClient;
 import org.babyfish.jimmer.sql.MappedSuperclass;
@@ -80,8 +92,7 @@ import io.quarkus.deployment.builditem.*;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveHierarchyIgnoreWarningBuildItem;
-import io.quarkus.deployment.builditem.NativeImageFeatureBuildItem;
-import io.quarkiverse.jimmer.runtime.graal.JimmerNativeInitFeature;
+import io.quarkus.deployment.builditem.nativeimage.RuntimeInitializedClassBuildItem;
 import io.quarkus.deployment.logging.LoggingSetupBuildItem;
 import io.quarkus.deployment.util.JandexUtil;
 import io.quarkus.gizmo.ClassOutput;
@@ -709,14 +720,47 @@ final class JimmerProcessor {
     }
 
     /**
-     * Jimmer metadata value types are instantiated by build-time-initialized generated DTO/entity
-     * classes, so their instances live in the image heap; the cache holders they reach must be
-     * build-time initialized as well. Done through a GraalVM Feature (see JimmerNativeInitFeature)
-     * because Quarkus exposes no compile-safe build item for build-time initialization.
+     * Jimmer's metadata graph is not safe to initialize concurrently: StaticCache (and siblings)
+     * guard a ReentrantReadWriteLock while ImmutablePropImpl/ImmutableTypeImpl take their own locks,
+     * and GraalVM runs class initializers across the ForkJoinPool. Build-time initializing them
+     * deadlocks the image build. Keep the whole cache/metadata machinery at run time.
      */
     @BuildStep
-    NativeImageFeatureBuildItem registerJimmerNativeInitFeature() {
-        return new NativeImageFeatureBuildItem(JimmerNativeInitFeature.class);
+    void runtimeInitializeJimmerCaches(BuildProducer<RuntimeInitializedClassBuildItem> runtimeInitialized) {
+        for (Class<?> clazz : new Class<?>[]{
+                StaticCache.class,
+                ClassCache.class,
+                TypeCache.class,
+                PropCache.class,
+                Metadata.class,
+                ConverterMetadata.class,
+                DtoMetadata.class,
+                AssociationType.class,
+                ScalarProvider.class,
+                CacheLoader.class,
+                AssociationTableProxyImpl.class,
+                TableProxies.class}) {
+            runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(clazz.getName()));
+        }
+    }
+
+    /**
+     * The generated Jimmer classes (Draft/Props/Fetcher/Table and the .dto Input/View types) build
+     * their metadata in static initializers that reach the run-time cache machinery above. If they
+     * were build-time initialized those metadata instances would be baked into the image heap (which
+     * clashes with the run-time caches) and the concurrent build-time init would deadlock. Defer
+     * them to run time as well, reusing the same discovery as reflection registration.
+     */
+    @BuildStep
+    void runtimeInitializeGeneratedJimmerClasses(CombinedIndexBuildItem combinedIndex,
+            BuildProducer<RuntimeInitializedClassBuildItem> runtimeInitialized) {
+        IndexView index = combinedIndex.getIndex();
+        Set<String> classNames = new HashSet<>();
+        collectAnnotatedEntities(index, classNames);
+        collectImplementors(index, classNames);
+        for (String className : classNames) {
+            runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(className));
+        }
     }
 
     @BuildStep
