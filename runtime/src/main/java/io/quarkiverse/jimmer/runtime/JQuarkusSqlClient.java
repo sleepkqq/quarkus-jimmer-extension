@@ -186,7 +186,7 @@ class JQuarkusSqlClient extends JLazyInitializationSqlClient {
             callbacks.add(CacheAbandonedCallback.log());
         }
         builder
-                .setDatabaseValidationMode(runtimeConfig.databaseValidation().mode())
+                .setDatabaseValidationMode(runtimeConfig.databaseValidationMode())
                 .setDefaultSerializedTypeJsonCodec(objectMapper != null ? JsonCodec.jsonCodec() : null)
                 .setCacheFactory(cacheFactory)
                 .setCacheOperator(cacheOperator)

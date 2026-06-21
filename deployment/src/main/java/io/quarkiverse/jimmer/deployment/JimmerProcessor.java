@@ -115,12 +115,51 @@ final class JimmerProcessor {
             DotName.createSimple(Entity.class),
             DotName.createSimple(MappedSuperclass.class));
 
-    private static final List<DotName> IMPLEMENTOR_TYPES = List.of(
-            DotName.createSimple(View.class),
-            DotName.createSimple(Input.class),
-            DotName.createSimple(Draft.class),
-            DotName.createSimple(Table.class),
-            DotName.createSimple(Fetcher.class));
+    private static final List<Class<?>> IMPLEMENTOR_TYPES = List.of(
+            View.class,
+            Input.class,
+            Draft.class,
+            Table.class,
+            Fetcher.class);
+
+    // Whole Jimmer SQL annotation surface (incl. the nested @JoinTable filters) kept for kotlin-reflect,
+    // which resolves every annotation member type when building entity metadata at run time. Referenced
+    // by .class (not strings) so a renamed/moved annotation breaks the build, not the native image.
+    private static final Class<?>[] JIMMER_SQL_ANNOTATIONS = {
+            org.babyfish.jimmer.sql.Column.class,
+            org.babyfish.jimmer.sql.Default.class,
+            org.babyfish.jimmer.sql.Embeddable.class,
+            org.babyfish.jimmer.sql.Entity.class,
+            org.babyfish.jimmer.sql.EnumItem.class,
+            org.babyfish.jimmer.sql.EnumType.class,
+            org.babyfish.jimmer.sql.GeneratedValue.class,
+            org.babyfish.jimmer.sql.Id.class,
+            org.babyfish.jimmer.sql.IdView.class,
+            org.babyfish.jimmer.sql.JoinColumn.class,
+            org.babyfish.jimmer.sql.JoinColumns.class,
+            org.babyfish.jimmer.sql.JoinSql.class,
+            org.babyfish.jimmer.sql.JoinTable.class,
+            org.babyfish.jimmer.sql.JoinTable.JoinTableFilter.class,
+            org.babyfish.jimmer.sql.JoinTable.LogicalDeletedFilter.class,
+            org.babyfish.jimmer.sql.Key.class,
+            org.babyfish.jimmer.sql.Keys.class,
+            org.babyfish.jimmer.sql.KeyUniqueConstraint.class,
+            org.babyfish.jimmer.sql.LogicalDeleted.class,
+            org.babyfish.jimmer.sql.ManyToMany.class,
+            org.babyfish.jimmer.sql.ManyToManyView.class,
+            org.babyfish.jimmer.sql.ManyToOne.class,
+            org.babyfish.jimmer.sql.MappedSuperclass.class,
+            org.babyfish.jimmer.sql.MapsId.class,
+            org.babyfish.jimmer.sql.OnDissociate.class,
+            org.babyfish.jimmer.sql.OneToMany.class,
+            org.babyfish.jimmer.sql.OneToOne.class,
+            org.babyfish.jimmer.sql.OrderedProp.class,
+            org.babyfish.jimmer.sql.PropOverride.class,
+            org.babyfish.jimmer.sql.PropOverrides.class,
+            org.babyfish.jimmer.sql.Serialized.class,
+            org.babyfish.jimmer.sql.Table.class,
+            org.babyfish.jimmer.sql.Transient.class,
+            org.babyfish.jimmer.sql.Version.class };
 
     @BuildStep
     FeatureBuildItem feature() {
@@ -828,30 +867,20 @@ final class JimmerProcessor {
                 .methods(true)
                 .build());
 
-        // Package-private jimmer-sql impls created for @LogicalDeleted / FilterManager —
-        // not reachable via .class from outside their package.
-        reflectiveClass.produce(ReflectiveClassBuildItem
-                .builder(
-                        "org.babyfish.jimmer.sql.filter.impl.LogicalDeletedFilterProvider$DefaultFilter",
-                        "org.babyfish.jimmer.sql.filter.impl.LogicalDeletedFilterProvider$IgnoredFilter",
-                        "org.babyfish.jimmer.sql.filter.impl.LogicalDeletedFilterProvider$ReversedFilter",
-                        "org.babyfish.jimmer.sql.filter.impl.FilterManager$ExportedCacheableFilter",
-                        "org.babyfish.jimmer.sql.filter.impl.FilterManager$ExportedFilter",
-                        // Anonymous CacheLoader subclass inside CaffeineValueBinder
-                        "org.babyfish.jimmer.sql.cache.caffeine.CaffeineValueBinder$1")
-                .methods(true)
-                .constructors(true)
-                .build());
+        // The package-private jimmer-sql impls (@LogicalDeleted / FilterManager filters and the
+        // anonymous CaffeineValueBinder CacheLoader) can't be referenced as .class from outside their
+        // package, so they are registered declaratively in
+        // META-INF/native-image/.../reflect-config.json instead.
 
         // User-defined CacheableFilter / TransientResolver / PropCacheInvalidator impls.
         IndexView index = combinedIndex.getIndex();
         Set<String> userImpls = new HashSet<>();
-        for (DotName iface : List.of(
-                DotName.createSimple(PropCacheInvalidator.class),
-                DotName.createSimple(CacheableFilter.class),
-                DotName.createSimple(Filter.class),
-                DotName.createSimple(TransientResolver.class))) {
-            for (ClassInfo impl : index.getAllKnownImplementors(iface)) {
+        for (Class<?> iface : List.of(
+                PropCacheInvalidator.class,
+                CacheableFilter.class,
+                Filter.class,
+                TransientResolver.class)) {
+            for (ClassInfo impl : index.getAllKnownImplementations(iface)) {
                 userImpls.add(impl.name().toString());
             }
         }
@@ -892,50 +921,9 @@ final class JimmerProcessor {
         }
     }
 
-    /**
-     * Kotlin reflection reads every annotation on an entity property when Jimmer builds metadata at
-     * run time, and to do so it resolves each annotation's member types. Jimmer's @JoinTable nests
-     * the JoinTableFilter / LogicalDeletedFilter annotation types, which are otherwise unreachable in
-     * the native image, so kotlin-reflect fails with "Type not found". Register the whole Jimmer SQL
-     * annotation surface (and the nested ones) for reflection so those member types stay available.
-     */
     @BuildStep
     void registerJimmerAnnotationsForReflection(BuildProducer<ReflectiveClassBuildItem> reflectiveClass) {
-        reflectiveClass.produce(ReflectiveClassBuildItem.builder(
-                "org.babyfish.jimmer.sql.Column",
-                "org.babyfish.jimmer.sql.Default",
-                "org.babyfish.jimmer.sql.Embeddable",
-                "org.babyfish.jimmer.sql.Entity",
-                "org.babyfish.jimmer.sql.EnumItem",
-                "org.babyfish.jimmer.sql.EnumType",
-                "org.babyfish.jimmer.sql.GeneratedValue",
-                "org.babyfish.jimmer.sql.Id",
-                "org.babyfish.jimmer.sql.IdView",
-                "org.babyfish.jimmer.sql.JoinColumn",
-                "org.babyfish.jimmer.sql.JoinColumns",
-                "org.babyfish.jimmer.sql.JoinSql",
-                "org.babyfish.jimmer.sql.JoinTable",
-                "org.babyfish.jimmer.sql.JoinTable$JoinTableFilter",
-                "org.babyfish.jimmer.sql.JoinTable$LogicalDeletedFilter",
-                "org.babyfish.jimmer.sql.Key",
-                "org.babyfish.jimmer.sql.Keys",
-                "org.babyfish.jimmer.sql.KeyUniqueConstraint",
-                "org.babyfish.jimmer.sql.LogicalDeleted",
-                "org.babyfish.jimmer.sql.ManyToMany",
-                "org.babyfish.jimmer.sql.ManyToManyView",
-                "org.babyfish.jimmer.sql.ManyToOne",
-                "org.babyfish.jimmer.sql.MappedSuperclass",
-                "org.babyfish.jimmer.sql.MapsId",
-                "org.babyfish.jimmer.sql.OnDissociate",
-                "org.babyfish.jimmer.sql.OneToMany",
-                "org.babyfish.jimmer.sql.OneToOne",
-                "org.babyfish.jimmer.sql.OrderedProp",
-                "org.babyfish.jimmer.sql.PropOverride",
-                "org.babyfish.jimmer.sql.PropOverrides",
-                "org.babyfish.jimmer.sql.Serialized",
-                "org.babyfish.jimmer.sql.Table",
-                "org.babyfish.jimmer.sql.Transient",
-                "org.babyfish.jimmer.sql.Version")
+        reflectiveClass.produce(ReflectiveClassBuildItem.builder(JIMMER_SQL_ANNOTATIONS)
                 .methods(true)
                 .build());
     }
@@ -983,8 +971,8 @@ final class JimmerProcessor {
     }
 
     private void collectImplementors(IndexView index, Set<String> classNames) {
-        for (DotName type : IMPLEMENTOR_TYPES) {
-            for (ClassInfo implementor : index.getAllKnownImplementors(type)) {
+        for (Class<?> type : IMPLEMENTOR_TYPES) {
+            for (ClassInfo implementor : index.getAllKnownImplementations(type)) {
                 addClassWithMemberClasses(implementor, classNames);
             }
         }
