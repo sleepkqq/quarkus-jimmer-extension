@@ -4,7 +4,6 @@ quarkus = "3.36.3"
 jimmer = "0.10.11"
 redisson = "4.6.1"
 testcontainers = "2.0.5"
-junit = "5.12.1"
 
 [libraries]
 # Quarkus BOM
@@ -23,8 +22,6 @@ quarkus-caffeine = { module = "io.quarkus:quarkus-caffeine" }
 quarkus-jackson-spi = { module = "io.quarkus:quarkus-jackson-spi" }
 quarkus-config-yaml = { module = "io.quarkus:quarkus-config-yaml" }
 quarkus-vertx = { module = "io.quarkus:quarkus-vertx" }
-quarkus-undertow = { module = "io.quarkus:quarkus-undertow" }
-quarkus-jdbc-h2 = { module = "io.quarkus:quarkus-jdbc-h2" }
 quarkus-jdbc-postgresql = { module = "io.quarkus:quarkus-jdbc-postgresql" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
 
