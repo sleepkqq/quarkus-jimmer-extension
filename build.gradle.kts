@@ -39,6 +39,65 @@ subprojects {
 	}
 }
 
+tasks.register("syncReadme") {
+	group = "documentation"
+	description = "Sync library versions in README.md from gradle/libs.versions.toml"
+
+	val catalog = layout.projectDirectory.file("gradle/libs.versions.toml").asFile
+	val readme = layout.projectDirectory.file("README.md").asFile
+	val extensionVersionProperty = findProperty("version") as String?
+
+	inputs.file(catalog)
+	inputs.property("extensionVersion", extensionVersionProperty ?: "")
+	outputs.file(readme)
+	outputs.upToDateWhen { false }
+
+	doLast {
+		val versions = catalog.readLines()
+			.dropWhile { it.trim() != "[versions]" }.drop(1)
+			.takeWhile { !it.trim().startsWith("[") }
+			.mapNotNull { line ->
+				Regex("""^\s*([\w-]+)\s*=\s*"([^"]+)"\s*$""").find(line)
+					?.let { it.groupValues[1] to it.groupValues[2] }
+			}.toMap()
+
+		val jimmer = requireNotNull(versions["jimmer"]) { "Missing 'jimmer' version in catalog" }
+		val quarkus = requireNotNull(versions["quarkus"]) { "Missing 'quarkus' version in catalog" }
+		val kotlin = requireNotNull(versions["kotlin"]) { "Missing 'kotlin' version in catalog" }
+
+		var text = readme.readText()
+
+		// Pin Jimmer codegen versions inside dependency snippets (anchored to artifact ids → safe)
+		text = text.replace(Regex("""jimmer-apt:[\d.]+"""), "jimmer-apt:$jimmer")
+		text = text.replace(Regex("""jimmer-ksp:[\d.]+"""), "jimmer-ksp:$jimmer")
+
+		// On a release build (-Pversion=1.x.y) also pin the extension coordinate
+		val realExtensionVersion = extensionVersionProperty
+			?.takeIf { Regex("""^\d+\.\d+\.\d+$""").matches(it) }
+		if (realExtensionVersion != null) {
+			text = text.replace(Regex("""quarkus-jimmer:[\d.]+"""), "quarkus-jimmer:$realExtensionVersion")
+		}
+
+		// Regenerate the compatibility table row between the markers, preserving the extension cell
+		val block = Regex("""<!-- versions:start -->\R([\s\S]*?)<!-- versions:end -->""")
+		val current = block.find(text)?.groupValues?.get(1).orEmpty()
+		val existingExtension = Regex("""\|\s*`([^`]+)`\s*\|""").find(current)?.groupValues?.get(1)
+		val extension = realExtensionVersion ?: existingExtension ?: "1.5.1"
+
+		val table = buildString {
+			appendLine("<!-- versions:start -->")
+			appendLine("| Extension | Quarkus  | Jimmer    | Kotlin  | JDK  |")
+			appendLine("|-----------|----------|-----------|---------|------|")
+			appendLine("| `$extension`   | `$quarkus` | `$jimmer` | `$kotlin` | `21` |")
+			append("<!-- versions:end -->")
+		}
+		text = block.replace(text, Regex.escapeReplacement(table))
+
+		readme.writeText(text)
+		logger.lifecycle("README.md synced: extension=$extension quarkus=$quarkus jimmer=$jimmer kotlin=$kotlin")
+	}
+}
+
 configure(subprojects.filter { it.name != "integration-tests" }) {
 	apply(plugin = "maven-publish")
 
