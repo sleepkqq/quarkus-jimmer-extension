@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.4.0"
-quarkus = "3.36.3"
+quarkus = "3.37.0"
 jimmer = "0.10.12"
 redisson = "4.6.1"
 testcontainers = "2.0.5"
