@@ -24,6 +24,8 @@ dependencies {
 	api(libs.jimmer.client)
 	api(libs.jimmer.client.swagger)
 
+	api(libs.java.uuid.generator)
+
 	compileOnly(libs.quarkus.redis.client)
 	compileOnly(libs.quarkus.caffeine)
 	compileOnly(libs.graalvm.nativeimage)

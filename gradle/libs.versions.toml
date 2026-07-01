@@ -4,6 +4,7 @@ quarkus = "3.37.0"
 jimmer = "0.10.12"
 redisson = "4.6.1"
 testcontainers = "2.0.5"
+java-uuid-generator = "5.2.0"
 
 [libraries]
 # Quarkus BOM
@@ -40,6 +41,9 @@ quarkus-extension-processor = { module = "io.quarkus:quarkus-extension-processor
 
 # Kotlin
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
+
+# UUID
+java-uuid-generator = { module = "com.fasterxml.uuid:java-uuid-generator", version.ref = "java-uuid-generator" }
 
 # Jimmer
 jimmer-sql = { module = "org.babyfish.jimmer:jimmer-sql", version.ref = "jimmer" }

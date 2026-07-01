@@ -35,6 +35,8 @@ import org.babyfish.jimmer.sql.dialect.PostgresDialect;
 import org.babyfish.jimmer.sql.dialect.SqlServerDialect;
 import org.babyfish.jimmer.sql.dialect.TiDBDialect;
 import org.babyfish.jimmer.sql.meta.UUIDIdGenerator;
+import io.quarkiverse.jimmer.runtime.generator.UUIDv7IdGenerator;
+import com.fasterxml.uuid.impl.TimeBasedEpochGenerator;
 import org.babyfish.jimmer.sql.ast.table.Table;
 import org.babyfish.jimmer.sql.TransientResolver;
 import org.babyfish.jimmer.sql.TypedTransientResolver;
@@ -793,6 +795,17 @@ final class JimmerProcessor {
     }
 
     /**
+     * UUIDv7IdGenerator eagerly builds a TimeBasedEpochGenerator in its static initializer, which
+     * holds a SecureRandom used to fill the random node bits. Build-time class initialization would
+     * bake that seeded Random into the image heap, which GraalVM rejects outright. Defer to run time.
+     */
+    @BuildStep
+    void runtimeInitializeUuidGenerator(BuildProducer<RuntimeInitializedClassBuildItem> runtimeInitialized) {
+        runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(UUIDv7IdGenerator.class.getName()));
+        runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(TimeBasedEpochGenerator.class.getName()));
+    }
+
+    /**
      * The generated Jimmer classes (Draft/Props/Fetcher/Table and the .dto Input/View types) build
      * their metadata in static initializers that reach the run-time cache machinery above. If they
      * were build-time initialized those metadata instances would be baked into the image heap (which
@@ -832,7 +845,8 @@ final class JimmerProcessor {
                         H2Dialect.class,
                         SqlServerDialect.class,
                         TiDBDialect.class,
-                        UUIDIdGenerator.class)
+                        UUIDIdGenerator.class,
+                        UUIDv7IdGenerator.class)
                         .constructors(true)
                         .build());
     }
