@@ -28,6 +28,7 @@ dependencies {
 
 	compileOnly(libs.quarkus.redis.client)
 	compileOnly(libs.quarkus.caffeine)
+	compileOnly(libs.redisson.quarkus)
 	compileOnly(libs.graalvm.nativeimage)
 
 	annotationProcessor(libs.quarkus.extension.processor)

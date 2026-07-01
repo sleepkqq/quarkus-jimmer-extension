@@ -26,7 +26,9 @@ import org.babyfish.jimmer.meta.impl.Metadata;
 import org.babyfish.jimmer.sql.association.meta.AssociationType;
 import org.babyfish.jimmer.sql.ast.impl.table.AssociationTableProxyImpl;
 import org.babyfish.jimmer.sql.ast.impl.table.TableProxies;
+import org.babyfish.jimmer.sql.cache.CacheFactory;
 import org.babyfish.jimmer.sql.cache.CacheLoader;
+import org.babyfish.jimmer.sql.cache.CacheTracker;
 import org.babyfish.jimmer.sql.fetcher.DtoMetadata;
 import org.babyfish.jimmer.sql.runtime.ConnectionManager;
 import org.babyfish.jimmer.sql.runtime.Customizer;
@@ -88,6 +90,9 @@ import org.jboss.logging.Logger;
 import io.quarkiverse.jimmer.deployment.bytecode.JimmerRepositoryFactory;
 import io.quarkiverse.jimmer.runtime.*;
 import io.quarkiverse.jimmer.runtime.QuarkusSqlClientProducer;
+import io.quarkiverse.jimmer.runtime.cache.AssociationEvictionGuard;
+import io.quarkiverse.jimmer.runtime.cache.JimmerRedisCacheProducer;
+import io.quarkiverse.jimmer.runtime.cache.RedissonCacheSupportProducer;
 import io.quarkiverse.jimmer.runtime.cache.impl.TransactionCacheOperatorFlusher;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerBuildTimeConfig;
 import io.quarkiverse.jimmer.runtime.client.CodeBasedExceptionAdvice;
@@ -115,6 +120,7 @@ import io.quarkus.agroal.DataSource;
 import io.quarkus.agroal.spi.JdbcDataSourceBuildItem;
 import io.quarkus.arc.deployment.*;
 import io.quarkus.arc.processor.DotNames;
+import io.quarkus.bootstrap.classloading.QuarkusClassLoader;
 import io.quarkus.datasource.common.runtime.DataSourceUtil;
 import io.quarkus.deployment.ApplicationArchive;
 import io.quarkus.deployment.Capabilities;
@@ -717,6 +723,35 @@ final class JimmerProcessor {
 
                 syntheticBeanBuildItemBuildProducer.produce(transactionCacheOperatorConfigurator.done());
             }
+        }
+    }
+
+    @BuildStep
+    void registerJimmerRedisCache(
+            BuildProducer<AdditionalBeanBuildItem> additionalBeans,
+            BuildProducer<UnremovableBeanBuildItem> unremovableBeans) {
+        if (!QuarkusClassLoader.isClassPresentAtRuntime("io.quarkus.redis.datasource.RedisDataSource")) {
+            return;
+        }
+        additionalBeans.produce(AdditionalBeanBuildItem.builder()
+                .setUnremovable()
+                .setDefaultScope(DotNames.SINGLETON)
+                .addBeanClass(JimmerRedisCacheProducer.class)
+                .build());
+        unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheFactory.class));
+
+        additionalBeans.produce(AdditionalBeanBuildItem.builder()
+                .setUnremovable()
+                .addBeanClass(AssociationEvictionGuard.class)
+                .build());
+
+        if (QuarkusClassLoader.isClassPresentAtRuntime("org.redisson.api.RedissonClient")) {
+            additionalBeans.produce(AdditionalBeanBuildItem.builder()
+                    .setUnremovable()
+                    .setDefaultScope(DotNames.SINGLETON)
+                    .addBeanClass(RedissonCacheSupportProducer.class)
+                    .build());
+            unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheTracker.class));
         }
     }
 
