@@ -63,9 +63,11 @@ import io.quarkus.arc.Arc;
 import io.quarkus.arc.ArcContainer;
 import io.quarkus.arc.InstanceHandle;
 
-class JQuarkusSqlClient extends JLazyInitializationSqlClient {
+class JQuarkusSqlClient extends JLazyInitializationSqlClient implements SqlClientInitializationAware {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JQuarkusSqlClient.class);
+
+    private volatile boolean initialized;
 
     private final DataSource dataSource;
 
@@ -84,6 +86,16 @@ class JQuarkusSqlClient extends JLazyInitializationSqlClient {
         this.dataSourceName = dataSourceName;
         this.block = block;
         this.isKotlin = isKotlin;
+    }
+
+    @Override
+    protected void afterCreate(JSqlClientImplementor sqlClient) {
+        initialized = true;
+    }
+
+    @Override
+    public boolean isSqlClientInitialized() {
+        return initialized;
     }
 
     @Override
