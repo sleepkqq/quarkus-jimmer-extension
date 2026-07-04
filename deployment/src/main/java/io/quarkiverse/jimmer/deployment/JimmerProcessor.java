@@ -2,6 +2,7 @@ package io.quarkiverse.jimmer.deployment;
 
 import java.beans.Introspector;
 import java.util.*;
+import java.util.function.Consumer;
 
 import jakarta.enterprise.inject.Default;
 import jakarta.inject.Named;
@@ -24,10 +25,32 @@ import org.babyfish.jimmer.sql.ast.impl.table.AssociationTableProxyImpl;
 import org.babyfish.jimmer.sql.ast.impl.table.TableProxies;
 import org.babyfish.jimmer.sql.cache.CacheLoader;
 import org.babyfish.jimmer.sql.fetcher.DtoMetadata;
+import org.babyfish.jimmer.sql.runtime.ConnectionManager;
+import org.babyfish.jimmer.sql.runtime.Customizer;
+import org.babyfish.jimmer.sql.runtime.EntityManager;
+import org.babyfish.jimmer.sql.runtime.ExceptionTranslator;
+import org.babyfish.jimmer.sql.runtime.Executor;
+import org.babyfish.jimmer.sql.runtime.Initializer;
+import org.babyfish.jimmer.sql.runtime.MicroServiceExchange;
 import org.babyfish.jimmer.sql.runtime.ScalarProvider;
+import org.babyfish.jimmer.sql.runtime.SqlFormatter;
+import org.babyfish.jimmer.sql.di.AopProxyProvider;
+import org.babyfish.jimmer.sql.di.LogicalDeletedValueGeneratorProvider;
+import org.babyfish.jimmer.sql.di.TransientResolverProvider;
+import org.babyfish.jimmer.sql.di.UserIdGeneratorProvider;
+import org.babyfish.jimmer.sql.meta.DatabaseNamingStrategy;
+import org.babyfish.jimmer.sql.meta.DatabaseSchemaStrategy;
+import org.babyfish.jimmer.sql.meta.LogicalDeletedValueGenerator;
+import org.babyfish.jimmer.sql.meta.MetaStringResolver;
+import org.babyfish.jimmer.sql.meta.UserIdGenerator;
+import org.babyfish.jimmer.sql.cache.CacheAbandonedCallback;
+import org.babyfish.jimmer.sql.cache.CacheFactory;
+import org.babyfish.jimmer.sql.cache.CacheOperator;
+import org.babyfish.jimmer.sql.DraftInterceptor;
 import org.babyfish.jimmer.sql.Entity;
 import org.babyfish.jimmer.sql.JSqlClient;
 import org.babyfish.jimmer.sql.MappedSuperclass;
+import org.babyfish.jimmer.sql.dialect.Dialect;
 import org.babyfish.jimmer.sql.dialect.H2Dialect;
 import org.babyfish.jimmer.sql.dialect.MySqlDialect;
 import org.babyfish.jimmer.sql.dialect.OracleDialect;
@@ -53,6 +76,9 @@ import org.babyfish.jimmer.sql.filter.ShardingCacheableFilter;
 import org.babyfish.jimmer.sql.filter.ShardingFilter;
 import org.babyfish.jimmer.sql.fetcher.Fetcher;
 import org.babyfish.jimmer.sql.kt.KSqlClient;
+import org.babyfish.jimmer.sql.kt.cfg.KCustomizer;
+import org.babyfish.jimmer.sql.kt.cfg.KInitializer;
+import org.babyfish.jimmer.sql.kt.filter.KFilter;
 import org.jboss.jandex.*;
 import org.jboss.logging.Logger;
 
@@ -72,6 +98,7 @@ import io.quarkiverse.jimmer.runtime.cloud.ExchangeRestClient;
 import io.quarkiverse.jimmer.runtime.cloud.MicroServiceExporterAssociatedIdsRecorder;
 import io.quarkiverse.jimmer.runtime.cloud.MicroServiceExporterIdsRecorder;
 import io.quarkiverse.jimmer.runtime.cloud.QuarkusExchange;
+import io.quarkiverse.jimmer.runtime.dialect.DialectDetector;
 import io.quarkiverse.jimmer.runtime.java.QuarkusJSqlClientContainer;
 import io.quarkiverse.jimmer.runtime.kotlin.QuarkusKSqlClientContainer;
 import io.quarkiverse.jimmer.runtime.repo.RepoRecord;
@@ -216,6 +243,56 @@ final class JimmerProcessor {
                         CodeBasedRuntimeException.class.getName(), Priorities.USER + 1, true));
             }
         }
+    }
+
+    /**
+     * Jimmer SPI beans are looked up reflectively via ArcContainer.listAll()/instance() when the
+     * SqlClient is built (see JQuarkusSqlClient#createBuilder), so ArC's build-time removal sees no
+     * injection point for them and would silently drop user-defined beans such as an
+     * ExceptionTranslator or DraftInterceptor that is not injected anywhere else.
+     */
+    @BuildStep
+    void unremovableJimmerSpiBeans(BuildProducer<UnremovableBeanBuildItem> unremovableBeans) {
+        unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(
+                ExceptionTranslator.class,
+                DraftInterceptor.class,
+                ScalarProvider.class,
+                Filter.class,
+                KFilter.class,
+                Customizer.class,
+                KCustomizer.class,
+                Initializer.class,
+                KInitializer.class,
+                CacheAbandonedCallback.class,
+                CacheFactory.class,
+                CacheOperator.class,
+                ConnectionManager.class,
+                Dialect.class,
+                DialectDetector.class,
+                Executor.class,
+                SqlFormatter.class,
+                EntityManager.class,
+                MetaStringResolver.class,
+                DatabaseSchemaStrategy.class,
+                DatabaseNamingStrategy.class,
+                UserIdGenerator.class,
+                UserIdGeneratorProvider.class,
+                LogicalDeletedValueGenerator.class,
+                LogicalDeletedValueGeneratorProvider.class,
+                TransientResolver.class,
+                TransientResolverProvider.class,
+                AopProxyProvider.class,
+                MicroServiceExchange.class));
+
+        // Consumer<JSqlClient.Builder> beans (see Constant.J_SQL_CLIENT_BUILDER_TYPE_LITERAL) cannot be
+        // matched by raw type without keeping every Consumer bean alive, so match the exact type argument.
+        DotName consumerName = DotName.createSimple(Consumer.class);
+        DotName builderName = DotName.createSimple(JSqlClient.Builder.class);
+        unremovableBeans.produce(new UnremovableBeanBuildItem(beanInfo -> beanInfo.getTypes().stream()
+                .anyMatch(type -> type.kind() == Type.Kind.PARAMETERIZED_TYPE
+                        && type.name().equals(consumerName)
+                        && type.asParameterizedType().arguments().size() == 1
+                        && type.asParameterizedType().arguments().getFirst().name().equals(builderName))));
     }
 
     @BuildStep

@@ -14,10 +14,8 @@ import org.jetbrains.annotations.Nullable;
 import io.quarkiverse.jimmer.it.entity.BaseEntity;
 import io.quarkiverse.jimmer.it.entity.BaseEntityDraft;
 import io.quarkiverse.jimmer.it.entity.BaseEntityProps;
-import io.quarkus.arc.Unremovable;
 
 @Singleton
-@Unremovable
 public class BaseEntityDraftInterceptor implements DraftInterceptor<BaseEntity, BaseEntityDraft> {
 
     @Override

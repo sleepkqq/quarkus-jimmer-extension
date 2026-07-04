@@ -17,10 +17,8 @@ import io.quarkiverse.jimmer.it.entity.BookProps;
 import io.quarkiverse.jimmer.it.entity.BookStore;
 import io.quarkiverse.jimmer.it.entity.BookStoreProps;
 import io.quarkiverse.jimmer.it.repository.BookRepository;
-import io.quarkus.arc.Unremovable;
 
 @ApplicationScoped
-@Unremovable
 public class BookStoreNewestBooksResolver implements TransientResolver<Long, List<Long>> {
 
     private final BookRepository bookRepository;

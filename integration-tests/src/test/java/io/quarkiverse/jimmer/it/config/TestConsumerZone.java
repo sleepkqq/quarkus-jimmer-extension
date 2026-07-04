@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import io.quarkiverse.jimmer.it.Constant;
 import io.quarkiverse.jimmer.runtime.Jimmer;
 import io.quarkus.agroal.DataSource;
-import io.quarkus.arc.Unremovable;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
@@ -36,7 +35,6 @@ public class TestConsumerZone {
     public static class ZoneIdConfigDefaultDB {
 
         @Singleton
-        @Unremovable
         @DataSource(Constant.DEFAULT)
         public Consumer<JSqlClient.Builder> jSqlClientZoneIdConfigurer() {
             return builder -> builder.setZoneId(ZoneId.of("Asia/Shanghai"));
@@ -47,7 +45,6 @@ public class TestConsumerZone {
     public static class ZoneIdConfigDB2 {
 
         @Singleton
-        @Unremovable
         @DataSource(Constant.DATASOURCE2)
         public Consumer<JSqlClient.Builder> jSqlClientZoneIdConfigurer() {
             return builder -> builder.setZoneId(ZoneId.of("Asia/Chongqing"));

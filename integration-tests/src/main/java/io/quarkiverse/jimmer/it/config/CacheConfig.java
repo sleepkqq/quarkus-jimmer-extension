@@ -17,14 +17,12 @@ import org.babyfish.jimmer.sql.cache.redisson.RedissonCacheLocker;
 import org.babyfish.jimmer.sql.cache.redisson.RedissonCacheTracker;
 import org.redisson.api.RedissonClient;
 
-import io.quarkus.arc.Unremovable;
 import io.quarkus.redis.datasource.RedisDataSource;
 
 @ApplicationScoped
 public class CacheConfig {
 
     @Singleton
-    @Unremovable
     public CacheFactory cacheFactory(RedissonClient redissonClient, RedisDataSource redisDataSource) {
         CacheCreator creator = new RedisCacheCreator(redisDataSource)
                 .withRemoteDuration(Duration.ofHours(1))

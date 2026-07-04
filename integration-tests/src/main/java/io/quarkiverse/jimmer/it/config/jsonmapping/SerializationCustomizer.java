@@ -6,10 +6,8 @@ import org.babyfish.jimmer.jackson.codec.JsonCodec;
 import org.babyfish.jimmer.sql.JSqlClient;
 import org.babyfish.jimmer.sql.runtime.Customizer;
 
-import io.quarkus.arc.Unremovable;
 
 @ApplicationScoped
-@Unremovable
 public class SerializationCustomizer implements Customizer {
 
     @Override

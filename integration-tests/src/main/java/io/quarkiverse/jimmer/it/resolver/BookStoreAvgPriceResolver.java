@@ -20,10 +20,8 @@ import io.quarkiverse.jimmer.it.entity.BookStore;
 import io.quarkiverse.jimmer.it.entity.BookStoreProps;
 import io.quarkiverse.jimmer.it.service.IBook;
 import io.quarkiverse.jimmer.runtime.Jimmer;
-import io.quarkus.arc.Unremovable;
 
 @ApplicationScoped
-@Unremovable
 public class BookStoreAvgPriceResolver implements TransientResolver<Long, BigDecimal> {
 
     private final IBook iBook;

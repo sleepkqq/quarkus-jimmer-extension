@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 
 import io.quarkus.arc.Arc;
 import io.quarkus.arc.InstanceHandle;
-import io.quarkus.arc.Unremovable;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
@@ -33,7 +32,6 @@ public class TransientResolverTestCase {
     }
 
     @ApplicationScoped
-    @Unremovable
     static class TestTransientResolver implements TransientResolver<Long, BigDecimal> {
 
         @Override
