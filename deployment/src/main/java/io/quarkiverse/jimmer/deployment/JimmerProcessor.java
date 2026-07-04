@@ -1,6 +1,9 @@
 package io.quarkiverse.jimmer.deployment;
 
 import java.beans.Introspector;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -113,11 +116,13 @@ import io.quarkus.agroal.spi.JdbcDataSourceBuildItem;
 import io.quarkus.arc.deployment.*;
 import io.quarkus.arc.processor.DotNames;
 import io.quarkus.datasource.common.runtime.DataSourceUtil;
+import io.quarkus.deployment.ApplicationArchive;
 import io.quarkus.deployment.Capabilities;
 import io.quarkus.deployment.Capability;
 import io.quarkus.deployment.annotations.*;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.*;
+import io.quarkus.deployment.builditem.nativeimage.LambdaCapturingTypeBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveHierarchyIgnoreWarningBuildItem;
@@ -293,6 +298,61 @@ final class JimmerProcessor {
                         && type.name().equals(consumerName)
                         && type.asParameterizedType().arguments().size() == 1
                         && type.asParameterizedType().arguments().getFirst().name().equals(builderName))));
+    }
+
+    /**
+     * Jimmer translates weak-join lambdas into SQL at runtime: it extracts the
+     * SerializedLambda via the synthetic writeReplace method and re-reads the byte code
+     * of the lambda's declaring class (SerializedLambda#getImplClass) with ASM. In a
+     * native image both steps fail unless the declaring class is registered as a
+     * lambda-capturing type for serialization and its .class file is kept as a resource,
+     * which surfaces as "The argument `weakJoinFun` must be lambda".
+     */
+    @BuildStep
+    void registerWeakJoinLambdaClasses(ApplicationArchivesBuildItem applicationArchives,
+            BuildProducer<NativeImageResourceBuildItem> nativeResources,
+            BuildProducer<LambdaCapturingTypeBuildItem> lambdaCapturingTypes) {
+        byte[][] markers = new byte[][] {
+                "KWeakJoinFun".getBytes(StandardCharsets.UTF_8),
+                "KPropsWeakJoinFun".getBytes(StandardCharsets.UTF_8),
+                "org/babyfish/jimmer/sql/ast/table/WeakJoin".getBytes(StandardCharsets.UTF_8)
+        };
+        Set<String> registered = new HashSet<>();
+        for (ApplicationArchive archive : applicationArchives.getAllArchives()) {
+            archive.accept(tree -> tree.walk(visit -> {
+                String relativePath = visit.getRelativePath("/");
+                if (!relativePath.endsWith(".class") || !registered.add(relativePath)) {
+                    return;
+                }
+                byte[] bytes;
+                try {
+                    bytes = Files.readAllBytes(visit.getPath());
+                } catch (IOException ex) {
+                    return;
+                }
+                if (containsAnyMarker(bytes, markers)) {
+                    nativeResources.produce(new NativeImageResourceBuildItem(relativePath));
+                    String className = relativePath
+                            .substring(0, relativePath.length() - ".class".length())
+                            .replace('/', '.');
+                    lambdaCapturingTypes.produce(new LambdaCapturingTypeBuildItem(className));
+                }
+            }));
+        }
+    }
+
+    private static boolean containsAnyMarker(byte[] bytes, byte[][] markers) {
+        for (byte[] marker : markers) {
+            outer: for (int i = 0; i <= bytes.length - marker.length; i++) {
+                for (int j = 0; j < marker.length; j++) {
+                    if (bytes[i + j] != marker[j]) {
+                        continue outer;
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     @BuildStep
