@@ -5,14 +5,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.interceptor.Interceptor;
 
-import org.babyfish.jimmer.meta.ImmutableProp;
-import org.babyfish.jimmer.meta.ImmutableType;
-import org.babyfish.jimmer.meta.TargetLevel;
 import org.babyfish.jimmer.sql.kt.KSqlClient;
-import org.babyfish.jimmer.sql.runtime.EntityManager;
 import org.babyfish.jimmer.sql.runtime.JSqlClientImplementor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.quarkiverse.jimmer.runtime.cfg.JimmerRuntimeConfig;
 import io.quarkiverse.jimmer.runtime.java.QuarkusJSqlClientContainer;
@@ -32,18 +26,9 @@ import io.quarkus.runtime.StartupEvent;
  * when the first scheduled job runs. Otherwise a scheduled job racing repository class-init on
  * another thread can deadlock Jimmer metadata initialization (StaticCache read-write lock vs
  * ImmutablePropImpl target-type lock).
- * <p>
- * Building the EntityManager alone leaves association links (mappedBy/opposite/storage) to be
- * resolved lazily by the first request that touches them — e.g. reshape in findByIds resolving
- * every selectable reference prop. In native images that lazy path has produced a corrupted
- * half-resolved link ("Both `A.b` and `A.b` use `mappedBy` to reference `C.d`") under concurrent
- * traffic, so the whole association graph is force-resolved here, single-threaded, before the
- * application starts serving requests.
  */
 @ApplicationScoped
 public class JimmerMetadataInitializer {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(JimmerMetadataInitializer.class);
 
     private final JimmerRuntimeConfig runtimeConfig;
 
@@ -61,7 +46,7 @@ public class JimmerMetadataInitializer {
             if (container instanceof UnConfiguredDataSourceQuarkusJSqlClientContainer) {
                 continue;
             }
-            warmUp((JSqlClientImplementor) container.getjSqlClient());
+            ((JSqlClientImplementor) container.getjSqlClient()).getEntityManager();
         }
         for (InstanceHandle<QuarkusKSqlClientContainer> handle : Arc.container()
                 .listAll(QuarkusKSqlClientContainer.class)) {
@@ -71,31 +56,7 @@ public class JimmerMetadataInitializer {
             }
             KSqlClient kSqlClient = container.getKSqlClient();
             if (kSqlClient != null) {
-                warmUp(kSqlClient.getJavaClient());
-            }
-        }
-    }
-
-    private void warmUp(JSqlClientImplementor sqlClient) {
-        EntityManager entityManager = sqlClient.getEntityManager();
-        for (ImmutableType type : entityManager.getAllTypes(sqlClient.getMicroServiceName())) {
-            for (ImmutableProp prop : type.getProps().values()) {
-                if (!prop.isAssociation(TargetLevel.ENTITY)) {
-                    continue;
-                }
-                try {
-                    prop.getTargetType();
-                    prop.getMappedBy();
-                    prop.getOpposite();
-                } catch (RuntimeException ex) {
-                    LOGGER.warn("Failed to eagerly resolve association \"{}\"", prop, ex);
-                }
-            }
-            try {
-                type.getSelectableReferenceProps();
-                type.getSelectableScalarProps();
-            } catch (RuntimeException ex) {
-                LOGGER.warn("Failed to eagerly resolve selectable props of \"{}\"", type, ex);
+                kSqlClient.getJavaClient().getEntityManager();
             }
         }
     }
