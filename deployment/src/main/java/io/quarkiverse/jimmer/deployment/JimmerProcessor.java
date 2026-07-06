@@ -882,29 +882,18 @@ final class JimmerProcessor {
         }
     }
 
-    /**
-     * The generated repository implementations resolve their derived query methods in
-     * {@code <clinit>}: it calls {@code ImmutableType.get(domainType)} and stores the resulting
-     * QueryMethods (holding ImmutableType/ImmutableProp instances) in static fields. Build-time
-     * initialization would bake that metadata graph into the image heap while the runtime-initialized
-     * cache machinery above rebuilds a fresh graph on startup; both graphs then resolve the same
-     * {@code mappedBy} pair and the second registration fails with
-     * "Both `A.b` and `A.b` use `mappedBy`". Defer the implementations to run time.
-     */
     @BuildStep
     @Consume(RepositoryMetadata.class)
     void generateRepositoryImpl(List<RepositoryMetadata> repositoryBuildItems,
-            BuildProducer<GeneratedBeanBuildItem> generatedBeanBuildItem,
-            BuildProducer<RuntimeInitializedClassBuildItem> runtimeInitialized) {
+            BuildProducer<GeneratedBeanBuildItem> generatedBeanBuildItem) {
         if (repositoryBuildItems.isEmpty()) {
             return;
         }
         ClassOutput classOutput = new GeneratedBeanGizmoAdaptor(generatedBeanBuildItem);
         for (RepositoryMetadata metadata : repositoryBuildItems) {
             JimmerRepositoryFactory jimmerRepositoryFactory = new JimmerRepositoryFactory(metadata);
-            String implClassName = jimmerRepositoryFactory.getTargetRepositoryClass().getName();
-            classOutput.write(implClassName, jimmerRepositoryFactory.getTargetRepositoryBytes());
-            runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(implClassName));
+            classOutput.write(jimmerRepositoryFactory.getTargetRepositoryClass().getName(),
+                    jimmerRepositoryFactory.getTargetRepositoryBytes());
         }
     }
 
