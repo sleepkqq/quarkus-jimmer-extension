@@ -739,10 +739,6 @@ final class JimmerProcessor {
             BuildProducer<UnremovableBeanBuildItem> unremovableBeans,
             BuildProducer<ReflectiveClassBuildItem> reflectiveClasses) {
         unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheFactory.class));
-        additionalBeans.produce(AdditionalBeanBuildItem.builder()
-                .setUnremovable()
-                .addBeanClass(AssociationEvictionGuard.class)
-                .build());
 
         // Optional-capability gate: the string is deliberate — a class reference would force a
         // hard deployment dependency on quarkus-redis-client.
@@ -756,6 +752,12 @@ final class JimmerProcessor {
             return;
         }
 
+        // The guard resolves KSqlClient at startup — keep it behind the Redis gate so datasource-less
+        // apps (e.g. dev-mode smoke tests) still boot.
+        additionalBeans.produce(AdditionalBeanBuildItem.builder()
+                .setUnremovable()
+                .addBeanClass(AssociationEvictionGuard.class)
+                .build());
         additionalBeans.produce(AdditionalBeanBuildItem.builder()
                 .setUnremovable()
                 .setDefaultScope(DotNames.SINGLETON)
