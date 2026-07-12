@@ -15,6 +15,7 @@ import jakarta.ws.rs.Priorities;
 import org.babyfish.jimmer.Draft;
 import org.babyfish.jimmer.Input;
 import org.babyfish.jimmer.View;
+import org.babyfish.jimmer.error.ClientExceptionMetadata;
 import org.babyfish.jimmer.error.CodeBasedException;
 import org.babyfish.jimmer.error.CodeBasedRuntimeException;
 import org.babyfish.jimmer.impl.util.ClassCache;
@@ -92,6 +93,7 @@ import io.quarkiverse.jimmer.runtime.*;
 import io.quarkiverse.jimmer.runtime.QuarkusSqlClientProducer;
 import io.quarkiverse.jimmer.runtime.cache.AssociationEvictionGuard;
 import io.quarkiverse.jimmer.runtime.cache.JimmerRedisCacheProducer;
+import io.quarkiverse.jimmer.runtime.cache.QuarkusRedissonCacheTracker;
 import io.quarkiverse.jimmer.runtime.cache.RedissonCacheSupportProducer;
 import io.quarkiverse.jimmer.runtime.cache.impl.TransactionCacheOperatorFlusher;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerBuildTimeConfig;
@@ -734,7 +736,8 @@ final class JimmerProcessor {
     @BuildStep
     void registerJimmerRedisCache(
             BuildProducer<AdditionalBeanBuildItem> additionalBeans,
-            BuildProducer<UnremovableBeanBuildItem> unremovableBeans) {
+            BuildProducer<UnremovableBeanBuildItem> unremovableBeans,
+            BuildProducer<ReflectiveClassBuildItem> reflectiveClasses) {
         if (!QuarkusClassLoader.isClassPresentAtRuntime("io.quarkus.redis.datasource.RedisDataSource")) {
             return;
         }
@@ -761,6 +764,12 @@ final class JimmerProcessor {
                     .addBeanClass(RedissonCacheSupportProducer.class)
                     .build());
             unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheTracker.class));
+
+            // The tracker's pub/sub message is (de)serialized by Jackson via field reflection —
+            // register it so the topic keeps working in a native image.
+            reflectiveClasses.produce(ReflectiveClassBuildItem.builder(
+                    QuarkusRedissonCacheTracker.InvalidationMessage.class)
+                    .constructors().fields().methods().build());
         }
     }
 
@@ -959,17 +968,18 @@ final class JimmerProcessor {
                 DtoMetadata.class,
                 AssociationType.class,
                 ScalarProvider.class,
+                ScalarProvider.Meta.class,
                 CacheLoader.class,
+                ClientExceptionMetadata.class,
                 AssociationTableProxyImpl.class,
                 TableProxies.class}) {
             runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(clazz.getName()));
         }
+        // Package-private / private nested in Jimmer — not referencable as class literals.
         for (String className : new String[]{
                 "org.babyfish.jimmer.sql.cache.ObjectCacheFetchers",
-                "org.babyfish.jimmer.sql.runtime.ScalarProvider$Meta",
                 "org.babyfish.jimmer.sql.ast.impl.table.WeakJoinHandleImpl",
                 "org.babyfish.jimmer.sql.ast.impl.table.WeakJoinHandleImpl$EntityTableHandleImpl",
-                "org.babyfish.jimmer.error.ClientExceptionMetadata",
                 "org.babyfish.jimmer.error.ClientExceptionMetadata$Cache"}) {
             runtimeInitialized.produce(new RuntimeInitializedClassBuildItem(className));
         }

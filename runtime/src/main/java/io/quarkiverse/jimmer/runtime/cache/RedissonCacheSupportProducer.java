@@ -4,7 +4,6 @@ import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Singleton;
 
 import org.babyfish.jimmer.sql.cache.CacheTracker;
-import org.babyfish.jimmer.sql.cache.redisson.RedissonCacheTracker;
 import org.redisson.api.RedissonClient;
 
 import io.quarkus.arc.Unremovable;
@@ -19,6 +18,6 @@ public class RedissonCacheSupportProducer {
     @Singleton
     @Unremovable
     public CacheTracker cacheTracker(RedissonClient redissonClient) {
-        return new RedissonCacheTracker(redissonClient);
+        return new QuarkusRedissonCacheTracker(redissonClient);
     }
 }
