@@ -45,7 +45,8 @@ public interface JimmerCacheConfig {
         String type();
 
         /**
-         * Cache mode: {@code REMOTE_ONLY} (Redis only) or {@code FULL} (Caffeine local tier in front of Redis).
+         * Cache mode: {@code LOCAL_ONLY} (Caffeine only, works without Redis), {@code REMOTE_ONLY}
+         * (Redis only) or {@code FULL} (Caffeine local tier in front of Redis).
          */
         @WithDefault("REMOTE_ONLY")
         CacheMode mode();
@@ -57,14 +58,15 @@ public interface JimmerCacheConfig {
         Duration remoteTtl();
 
         /**
-         * TTL of the local (Caffeine) tier. Applies to {@code FULL} mode only. Keep it short — it is the backstop
-         * for a missed cross-instance invalidation message.
+         * TTL of the local (Caffeine) tier. Applies to {@code FULL} and {@code LOCAL_ONLY} modes. Keep it
+         * short — it is the backstop for a missed cross-instance invalidation message (and, for
+         * {@code LOCAL_ONLY} without Redis, the only consistency mechanism).
          */
         @WithDefault("PT30S")
         Duration localTtl();
 
         /**
-         * Maximum entries of the local (Caffeine) tier. Applies to {@code FULL} mode only.
+         * Maximum entries of the local (Caffeine) tier. Applies to {@code FULL} and {@code LOCAL_ONLY} modes.
          */
         @WithDefault("10000")
         int localMaxSize();

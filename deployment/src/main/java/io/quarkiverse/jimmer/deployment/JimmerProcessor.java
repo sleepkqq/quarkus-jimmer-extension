@@ -92,6 +92,7 @@ import io.quarkiverse.jimmer.deployment.bytecode.JimmerRepositoryFactory;
 import io.quarkiverse.jimmer.runtime.*;
 import io.quarkiverse.jimmer.runtime.QuarkusSqlClientProducer;
 import io.quarkiverse.jimmer.runtime.cache.AssociationEvictionGuard;
+import io.quarkiverse.jimmer.runtime.cache.JimmerLocalCacheProducer;
 import io.quarkiverse.jimmer.runtime.cache.JimmerRedisCacheProducer;
 import io.quarkiverse.jimmer.runtime.cache.QuarkusRedisCacheTracker;
 import io.quarkiverse.jimmer.runtime.cache.impl.TransactionCacheOperatorFlusher;
@@ -733,25 +734,34 @@ final class JimmerProcessor {
     }
 
     @BuildStep
-    void registerJimmerRedisCache(
+    void registerJimmerCache(
             BuildProducer<AdditionalBeanBuildItem> additionalBeans,
             BuildProducer<UnremovableBeanBuildItem> unremovableBeans,
             BuildProducer<ReflectiveClassBuildItem> reflectiveClasses) {
+        unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheFactory.class));
+        additionalBeans.produce(AdditionalBeanBuildItem.builder()
+                .setUnremovable()
+                .addBeanClass(AssociationEvictionGuard.class)
+                .build());
+
+        // Optional-capability gate: the string is deliberate — a class reference would force a
+        // hard deployment dependency on quarkus-redis-client.
         if (!QuarkusClassLoader.isClassPresentAtRuntime("io.quarkus.redis.datasource.RedisDataSource")) {
+            // No Redis: LOCAL_ONLY-only factory (per-instance Caffeine, no pub/sub invalidation).
+            additionalBeans.produce(AdditionalBeanBuildItem.builder()
+                    .setUnremovable()
+                    .setDefaultScope(DotNames.SINGLETON)
+                    .addBeanClass(JimmerLocalCacheProducer.class)
+                    .build());
             return;
         }
+
         additionalBeans.produce(AdditionalBeanBuildItem.builder()
                 .setUnremovable()
                 .setDefaultScope(DotNames.SINGLETON)
                 .addBeanClass(JimmerRedisCacheProducer.class)
                 .build());
-        unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheFactory.class));
         unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheTracker.class));
-
-        additionalBeans.produce(AdditionalBeanBuildItem.builder()
-                .setUnremovable()
-                .addBeanClass(AssociationEvictionGuard.class)
-                .build());
 
         // The tracker's pub/sub message is (de)serialized by Jackson via field reflection —
         // register it so the channel keeps working in a native image.

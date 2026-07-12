@@ -17,9 +17,13 @@ import io.quarkiverse.jimmer.runtime.cfg.JimmerCacheConfig;
 import io.quarkus.redis.datasource.RedisDataSource;
 
 /**
- * {@link CacheFactory} backed by Jimmer's Quarkus Redis cache binders. Builds a per-entity chain cache from
- * {@link JimmerCacheConfig}: {@code REMOTE_ONLY} yields a Redis-only cache, {@code FULL} adds a Caffeine local tier
- * kept consistent across instances by the (optional) {@link CacheTracker}.
+ * {@link CacheFactory} building per-entity chain caches from {@link JimmerCacheConfig}:
+ * {@code LOCAL_ONLY} is a Caffeine-only chain (plus cross-instance invalidation publication when a
+ * {@link CacheTracker} is present), {@code REMOTE_ONLY} a Redis-only cache, {@code FULL} a Caffeine
+ * local tier in front of Redis kept consistent across instances by the tracker.
+ *
+ * <p>Requires Redis; see {@link JimmerLocalCacheFactory} for applications without
+ * {@code quarkus-redis-client}.</p>
  */
 public class JimmerRedisCacheFactory implements CacheFactory {
 
@@ -37,9 +41,14 @@ public class JimmerRedisCacheFactory implements CacheFactory {
         this.tracker = tracker;
         this.configByType = new LinkedHashMap<>();
         for (JimmerCacheConfig.EntityCacheConfig entity : config.entities()) {
+            if (entity.mode() != CacheMode.LOCAL_ONLY && redisDataSource == null) {
+                throw new IllegalStateException(
+                        "Entity " + entity.type() + " is configured with cache mode " + entity.mode()
+                                + ", which requires quarkus-redis-client on the classpath; "
+                                + "add the dependency or switch the entity to LOCAL_ONLY");
+            }
             configByType.put(entity.type(), entity);
-            LOGGER.info("Jimmer cache enabled for entity {} [mode={}, remoteTtl={}]",
-                    entity.type(), entity.mode(), entity.remoteTtl());
+            LOGGER.info("Jimmer cache enabled for entity {} [mode={}]", entity.type(), entity.mode());
         }
     }
 
@@ -49,30 +58,37 @@ public class JimmerRedisCacheFactory implements CacheFactory {
         if (config == null) {
             return null;
         }
+        if (config.mode() == CacheMode.LOCAL_ONLY) {
+            return LocalOnlyCaches.create(type, null, config, tracker);
+        }
         return creator(config).createForObject(type);
     }
 
     @Override
     public Cache<?, ?> createAssociatedIdCache(ImmutableProp prop) {
-        JimmerCacheConfig.EntityCacheConfig config = configByType.get(prop.getDeclaringType().getJavaClass().getSimpleName());
-        if (config == null || !config.cacheAssociations() || !isCachedAssociation(prop)) {
-            return null;
-        }
-        return creator(config).createForProp(prop, false);
+        return associationCache(prop);
     }
 
     @Override
     public Cache<?, List<?>> createAssociatedIdListCache(ImmutableProp prop) {
-        JimmerCacheConfig.EntityCacheConfig config = configByType.get(prop.getDeclaringType().getJavaClass().getSimpleName());
-        if (config == null || !config.cacheAssociations() || !isCachedAssociation(prop)) {
-            return null;
-        }
-        return creator(config).createForProp(prop, false);
+        return associationCache(prop);
     }
 
     @Override
     public Cache<?, ?> createResolverCache(ImmutableProp prop) {
         return null;
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private <T> T associationCache(ImmutableProp prop) {
+        JimmerCacheConfig.EntityCacheConfig config = configByType.get(prop.getDeclaringType().getJavaClass().getSimpleName());
+        if (config == null || !config.cacheAssociations() || !isCachedAssociation(prop)) {
+            return null;
+        }
+        if (config.mode() == CacheMode.LOCAL_ONLY) {
+            return (T) LocalOnlyCaches.create(null, prop, config, tracker);
+        }
+        return (T) (Cache) creator(config).createForProp(prop, false);
     }
 
     private CacheCreator creator(JimmerCacheConfig.EntityCacheConfig config) {
