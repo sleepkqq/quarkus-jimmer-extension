@@ -24,6 +24,11 @@
 - `quarkus.jimmer.<datasource>.id-only-target-checking-level`
 - `quarkus.jimmer.<datasource>.in-list-padding-enabled`
 - `quarkus.jimmer.<datasource>.foreign-key-enabled-by-default`
+- `quarkus.jimmer.<datasource>.default-type-change-allowed` (default: false, since jimmer 0.11.0)
+- `quarkus.jimmer.<datasource>.default-save-returning-enabled` (default: true, since jimmer 0.11.0)
+- `quarkus.jimmer.<datasource>.default-save-result-reads-all-properties` (default: false, since jimmer 0.11.0)
+- `quarkus.jimmer.<datasource>.jdbc.default-fetch-size` (since jimmer 0.11.0)
+- `quarkus.jimmer.<datasource>.jdbc.default-query-timeout` (since jimmer 0.11.0)
 
 ## Multi-datasource
 

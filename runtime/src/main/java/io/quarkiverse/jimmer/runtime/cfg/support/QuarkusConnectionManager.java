@@ -53,31 +53,7 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
         }
 
         if (isTransactionActive()) {
-            Connection txConn = (Connection) tsr.getResource(connectionKey);
-            if (txConn != null) {
-                return block.apply(txConn);
-            }
-            Connection conn;
-            try {
-                conn = dataSource.getConnection();
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            tsr.putResource(connectionKey, conn);
-            tsr.registerInterposedSynchronization(new Synchronization() {
-                @Override
-                public void beforeCompletion() {
-                    try {
-                        conn.close();
-                    } catch (SQLException ignored) {
-                    }
-                }
-
-                @Override
-                public void afterCompletion(int status) {
-                }
-            });
-            return block.apply(conn);
+            return block.apply(transactionalConnection());
         }
 
         try (Connection newConnection = dataSource.getConnection()) {
@@ -85,6 +61,75 @@ public class QuarkusConnectionManager implements DataSourceAwareConnectionManage
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public final ConnectionScope open(@Nullable Connection con) {
+        if (null != con) {
+            return ConnectionScope.userConnection(con);
+        }
+
+        if (isTransactionActive()) {
+            // connection is bound to the JTA transaction and closed by its synchronization
+            return ConnectionScope.userConnection(transactionalConnection());
+        }
+
+        Connection newConnection;
+        try {
+            newConnection = dataSource.getConnection();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return new ConnectionScope() {
+
+            private boolean closed;
+
+            @Override
+            public Connection connection() {
+                return newConnection;
+            }
+
+            @Override
+            public void close() {
+                if (closed) {
+                    return;
+                }
+                closed = true;
+                try {
+                    newConnection.close();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+    }
+
+    private Connection transactionalConnection() {
+        Connection txConn = (Connection) tsr.getResource(connectionKey);
+        if (txConn != null) {
+            return txConn;
+        }
+        Connection conn;
+        try {
+            conn = dataSource.getConnection();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        tsr.putResource(connectionKey, conn);
+        tsr.registerInterposedSynchronization(new Synchronization() {
+            @Override
+            public void beforeCompletion() {
+                try {
+                    conn.close();
+                } catch (SQLException ignored) {
+                }
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+            }
+        });
+        return conn;
     }
 
     @Override

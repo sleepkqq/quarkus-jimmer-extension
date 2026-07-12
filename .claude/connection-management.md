@@ -18,6 +18,13 @@
 5. Commit/rollback → Narayana автоматически сбрасывает TSR-ресурсы; Agroal возвращает коннект в пул.
 6. Вне транзакции (`isTransactionActive() == false`) — try-with-resources: коннект открывается и сразу закрывается.
 
+## ConnectionScope open() (jimmer 0.11.0, selection streaming)
+
+`open(con)` — для streaming-запросов, где коннект должен жить дольше вызова (закрывается при закрытии stream):
+- Явный `con` → `ConnectionScope.userConnection(con)` (не закрываем).
+- Активная TX → тот же TX-коннект, что и в `execute()` (закроет synchronization на commit/rollback).
+- Без TX → свежий коннект; `scope.close()` возвращает его в пул.
+
 ## Ключ кеширования: `private final Object connectionKey`
 
 Каждый инстанс `QuarkusConnectionManager` (один на datasource) имеет **свой** `connectionKey`.

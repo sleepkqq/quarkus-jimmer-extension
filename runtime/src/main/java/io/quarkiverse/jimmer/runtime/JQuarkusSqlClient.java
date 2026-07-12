@@ -178,6 +178,15 @@ class JQuarkusSqlClient extends JLazyInitializationSqlClient implements SqlClien
                 runtimeConfig.dataSources().get(dataSourceName).constraintViolationTranslatable());
         runtimeConfig.dataSources().get(dataSourceName).executorContextPrefixes()
                 .ifPresent(builder::setExecutorContextPrefixes);
+        builder.setDefaultTypeChangeAllowed(runtimeConfig.dataSources().get(dataSourceName).defaultTypeChangeAllowed());
+        builder.setDefaultSaveReturningEnabled(
+                runtimeConfig.dataSources().get(dataSourceName).defaultSaveReturningEnabled());
+        builder.setDefaultSaveResultReadsAllProperties(
+                runtimeConfig.dataSources().get(dataSourceName).defaultSaveResultReadsAllProperties());
+        runtimeConfig.dataSources().get(dataSourceName).jdbc().defaultFetchSize()
+                .ifPresent(builder::setDefaultJdbcFetchSize);
+        runtimeConfig.dataSources().get(dataSourceName).jdbc().defaultQueryTimeout()
+                .ifPresent(builder::setDefaultJdbcQueryTimeout);
 
         if (buildTimeConfig.dataSources().get(dataSourceName).showSql()) {
             builder.setExecutor(Executor.log(executor));

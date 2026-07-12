@@ -149,4 +149,41 @@ public interface JimmerDataSourceRuntimeConfig {
      * jimmer.executorContextPrefixes
      */
     Optional<List<String>> executorContextPrefixes();
+
+    /**
+     * jimmer.defaultTypeChangeAllowed
+     */
+    @WithDefault("false")
+    boolean defaultTypeChangeAllowed();
+
+    /**
+     * jimmer.defaultSaveReturningEnabled
+     */
+    @WithDefault("true")
+    boolean defaultSaveReturningEnabled();
+
+    /**
+     * jimmer.defaultSaveResultReadsAllProperties
+     */
+    @WithDefault("false")
+    boolean defaultSaveResultReadsAllProperties();
+
+    /**
+     * jimmer.jdbc
+     */
+    Jdbc jdbc();
+
+    @ConfigGroup
+    interface Jdbc {
+
+        /**
+         * jimmer.jdbc.defaultFetchSize
+         */
+        OptionalInt defaultFetchSize();
+
+        /**
+         * jimmer.jdbc.defaultQueryTimeout
+         */
+        OptionalInt defaultQueryTimeout();
+    }
 }

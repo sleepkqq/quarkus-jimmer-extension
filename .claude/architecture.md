@@ -23,9 +23,9 @@ Java/Kotlin target: JDK 21. Gradle 9.4.0.
 
 ## Key Versions (libs.versions.toml)
 
-- Quarkus: 3.32.3
-- Jimmer: 0.10.7
-- Kotlin: 2.3.20
+- Quarkus: 3.37.2
+- Jimmer: 0.11.0
+- Kotlin: 2.4.0
 
 ## Deployment vs Runtime
 
