@@ -327,7 +327,12 @@ final class JimmerProcessor {
         for (ApplicationArchive archive : applicationArchives.getAllArchives()) {
             archive.accept(tree -> tree.walk(visit -> {
                 String relativePath = visit.getRelativePath("/");
-                if (!relativePath.endsWith(".class") || !registered.add(relativePath)) {
+                // Only user code can declare weak-join lambdas; Jimmer's own classes merely
+                // reference the marker types in their signatures and would be registered as
+                // lambda-capturing for nothing (GraalVM warns per class).
+                if (!relativePath.endsWith(".class")
+                        || relativePath.startsWith("org/babyfish/jimmer/")
+                        || !registered.add(relativePath)) {
                     return;
                 }
                 byte[] bytes;

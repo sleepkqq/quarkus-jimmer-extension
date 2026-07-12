@@ -2,7 +2,10 @@
 kotlin = "2.4.0"
 quarkus = "3.37.2"
 jimmer = "0.11.0"
-redisson = "4.6.1"
+# 3.x maintenance line = netty 4.1, matching quarkus 3.x; the 4.x line is built against
+# netty 4.2 and breaks GraalVM native builds of consumers (unresolved io.netty.channel.uring
+# types in code redisson-quarkus links at build time). Jimmer's redisson module targets 3.x too.
+redisson = "3.52.0"
 testcontainers = "2.0.5"
 java-uuid-generator = "5.2.0"
 
