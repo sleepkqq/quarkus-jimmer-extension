@@ -12,11 +12,17 @@ import io.quarkus.arc.Unremovable;
 import io.quarkus.redis.datasource.RedisDataSource;
 
 /**
- * Produces the Jimmer {@link CacheFactory} bean when {@code quarkus-redis-client} is on the classpath. The
- * {@link CacheTracker} is resolved optionally — present only when a Redisson-based support producer is registered
- * (see {@code RedissonCacheSupportProducer}).
+ * Produces the Jimmer {@link CacheFactory} and {@link CacheTracker} beans when
+ * {@code quarkus-redis-client} is on the classpath.
  */
 public class JimmerRedisCacheProducer {
+
+    @Produces
+    @Singleton
+    @Unremovable
+    public CacheTracker cacheTracker(RedisDataSource redisDataSource) {
+        return new QuarkusRedisCacheTracker(redisDataSource);
+    }
 
     @Produces
     @Singleton

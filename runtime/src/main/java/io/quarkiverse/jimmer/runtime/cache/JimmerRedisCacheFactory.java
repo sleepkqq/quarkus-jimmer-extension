@@ -10,7 +10,6 @@ import org.babyfish.jimmer.sql.cache.Cache;
 import org.babyfish.jimmer.sql.cache.CacheCreator;
 import org.babyfish.jimmer.sql.cache.CacheFactory;
 import org.babyfish.jimmer.sql.cache.CacheTracker;
-import org.babyfish.jimmer.sql.cache.redis.quarkus.RedisCacheCreator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

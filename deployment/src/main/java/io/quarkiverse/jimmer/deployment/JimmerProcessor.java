@@ -93,8 +93,7 @@ import io.quarkiverse.jimmer.runtime.*;
 import io.quarkiverse.jimmer.runtime.QuarkusSqlClientProducer;
 import io.quarkiverse.jimmer.runtime.cache.AssociationEvictionGuard;
 import io.quarkiverse.jimmer.runtime.cache.JimmerRedisCacheProducer;
-import io.quarkiverse.jimmer.runtime.cache.QuarkusRedissonCacheTracker;
-import io.quarkiverse.jimmer.runtime.cache.RedissonCacheSupportProducer;
+import io.quarkiverse.jimmer.runtime.cache.QuarkusRedisCacheTracker;
 import io.quarkiverse.jimmer.runtime.cache.impl.TransactionCacheOperatorFlusher;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerBuildTimeConfig;
 import io.quarkiverse.jimmer.runtime.client.CodeBasedExceptionAdvice;
@@ -747,30 +746,18 @@ final class JimmerProcessor {
                 .addBeanClass(JimmerRedisCacheProducer.class)
                 .build());
         unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheFactory.class));
+        unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheTracker.class));
 
         additionalBeans.produce(AdditionalBeanBuildItem.builder()
                 .setUnremovable()
                 .addBeanClass(AssociationEvictionGuard.class)
                 .build());
 
-        // Gate on the redisson-quarkus producer, not the bare Redisson API: only the Quarkus
-        // integration contributes the RedissonClient bean the tracker producer injects — plain
-        // org.redisson:redisson on the classpath would register a producer with an unsatisfiable
-        // dependency and fail ArC validation.
-        if (QuarkusClassLoader.isClassPresentAtRuntime("io.quarkus.redisson.client.runtime.RedissonClientProducer")) {
-            additionalBeans.produce(AdditionalBeanBuildItem.builder()
-                    .setUnremovable()
-                    .setDefaultScope(DotNames.SINGLETON)
-                    .addBeanClass(RedissonCacheSupportProducer.class)
-                    .build());
-            unremovableBeans.produce(UnremovableBeanBuildItem.beanTypes(CacheTracker.class));
-
-            // The tracker's pub/sub message is (de)serialized by Jackson via field reflection —
-            // register it so the topic keeps working in a native image.
-            reflectiveClasses.produce(ReflectiveClassBuildItem.builder(
-                    QuarkusRedissonCacheTracker.InvalidationMessage.class)
-                    .constructors().fields().methods().build());
-        }
+        // The tracker's pub/sub message is (de)serialized by Jackson via field reflection —
+        // register it so the channel keeps working in a native image.
+        reflectiveClasses.produce(ReflectiveClassBuildItem.builder(
+                QuarkusRedisCacheTracker.InvalidationMessage.class)
+                .constructors().fields().methods().build());
     }
 
     @BuildStep(onlyIf = IsJavaEnable.class)

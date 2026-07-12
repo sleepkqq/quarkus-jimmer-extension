@@ -29,8 +29,6 @@ dependencies {
 
 	runtimeOnly(libs.quarkus.jdbc.postgresql)
 
-	implementation(libs.redisson.quarkus)
-
 	annotationProcessor(libs.jimmer.apt)
 
 	testImplementation(libs.quarkus.junit5)

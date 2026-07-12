@@ -23,23 +23,6 @@ quarkus:
         max-size: 8
   log:
     level: INFO
-  redisson:
-    single-server-config:
-      address: redis://127.0.0.1:6379
-#      password: password
-      database: 0
-      idleConnectionTimeout: 10000
-      connectTimeout: 10000
-      timeout: 3000
-      retryAttempts: 3
-      subscriptionsPerConnection: 1
-      clientName: null
-      subscriptionConnectionMinimumIdleSize: 1
-      subscriptionConnectionPoolSize: 1
-      connectionMinimumIdleSize: 1
-      connectionPoolSize: 1
-    threads: 2
-    netty-threads: 2
   redis:
     hosts: redis://127.0.0.1:6379
     timeout: 10s

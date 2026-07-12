@@ -12,27 +12,22 @@ import org.babyfish.jimmer.sql.cache.AbstractCacheFactory;
 import org.babyfish.jimmer.sql.cache.Cache;
 import org.babyfish.jimmer.sql.cache.CacheCreator;
 import org.babyfish.jimmer.sql.cache.CacheFactory;
-import org.babyfish.jimmer.sql.cache.redis.quarkus.RedisCacheCreator;
-import org.babyfish.jimmer.sql.cache.redisson.RedissonCacheLocker;
-import org.babyfish.jimmer.sql.cache.redisson.RedissonCacheTracker;
-import org.redisson.api.RedissonClient;
 
+import io.quarkiverse.jimmer.runtime.cache.QuarkusRedisCacheTracker;
+import io.quarkiverse.jimmer.runtime.cache.RedisCacheCreator;
 import io.quarkus.redis.datasource.RedisDataSource;
 
 @ApplicationScoped
 public class CacheConfig {
 
     @Singleton
-    public CacheFactory cacheFactory(RedissonClient redissonClient, RedisDataSource redisDataSource) {
+    public CacheFactory cacheFactory(RedisDataSource redisDataSource) {
         CacheCreator creator = new RedisCacheCreator(redisDataSource)
                 .withRemoteDuration(Duration.ofHours(1))
                 .withLocalCache(100, Duration.ofMinutes(5))
                 .withMultiViewProperties(40, Duration.ofMinutes(2), Duration.ofMinutes(24))
-                .withSoftLock( // Optional, for better consistency
-                        new RedissonCacheLocker(redissonClient),
-                        Duration.ofSeconds(30))
                 .withTracking( // Optional, for application cluster
-                        new RedissonCacheTracker(redissonClient));
+                        new QuarkusRedisCacheTracker(redisDataSource));
 
         return new AbstractCacheFactory() {
 

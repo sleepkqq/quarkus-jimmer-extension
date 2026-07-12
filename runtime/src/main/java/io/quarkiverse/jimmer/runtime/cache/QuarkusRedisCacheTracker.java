@@ -8,28 +8,21 @@ import org.babyfish.jimmer.meta.ImmutableProp;
 import org.babyfish.jimmer.meta.ImmutableType;
 import org.babyfish.jimmer.sql.cache.CacheTracker;
 import org.babyfish.jimmer.sql.cache.spi.AbstractCacheTracker;
-import org.redisson.api.RTopic;
-import org.redisson.api.RedissonClient;
-import org.redisson.api.listener.BaseStatusListener;
-import org.redisson.codec.TypedJsonJacksonCodec;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 
+import io.quarkus.redis.datasource.RedisDataSource;
+import io.quarkus.redis.datasource.pubsub.PubSubCommands;
+
 /**
- * Redisson-backed {@link CacheTracker} equivalent to Jimmer's own {@code RedissonCacheTracker}, but
- * usable in a GraalVM native image: the pub/sub topic gets an explicit {@link TypedJsonJacksonCodec}
- * instead of the client's default codec. Redisson's default (Kryo) instantiates message objects via
- * Objenesis, which needs {@code sun.reflect.ReflectionFactory} — absent under GraalVM — while the
- * global {@code JsonJacksonCodec} enables Jackson default typing, which Jimmer's hand-written
- * message serializer does not support ("Type id handling not implemented"). A per-topic typed codec
- * avoids both without touching the client-wide codec.
- *
- * <p>The channel is intentionally distinct from Jimmer's {@code _jimmer_:invalidate}: the wire
- * format differs (plain JSON of {@link InvalidationMessage} vs Jimmer's package-private message),
- * and instances of one application must all run the same extension version anyway.</p>
+ * {@link CacheTracker} on plain Redis PUB/SUB via the Quarkus Redis (Vert.x) client — cross-instance
+ * invalidation of the local tier of {@code FULL} caches without a Redisson dependency. The message
+ * is a plain-JSON DTO serialized by the client's Jackson codec, so it also works in a GraalVM
+ * native image (Redisson's default Kryo codec needs Objenesis / {@code sun.reflect.ReflectionFactory},
+ * which is absent there).
  */
-public class QuarkusRedissonCacheTracker extends AbstractCacheTracker {
+public class QuarkusRedisCacheTracker extends AbstractCacheTracker {
 
     private static final String CHANNEL = "_quarkus_jimmer_:invalidate";
 
@@ -37,26 +30,23 @@ public class QuarkusRedissonCacheTracker extends AbstractCacheTracker {
 
     private final UUID trackerId = UUID.randomUUID();
 
-    private final RTopic topic;
+    private final PubSubCommands<InvalidationMessage> pubSub;
 
-    public QuarkusRedissonCacheTracker(RedissonClient redissonClient) {
-        topic = redissonClient.getTopic(CHANNEL, new TypedJsonJacksonCodec(InvalidationMessage.class));
-        topic.addListener(InvalidationMessage.class, (channel, msg) -> {
+    @SuppressWarnings("unused") // keeps the subscription alive for the application's lifetime
+    private final PubSubCommands.RedisSubscriber subscriber;
+
+    public QuarkusRedisCacheTracker(RedisDataSource redisDataSource) {
+        pubSub = redisDataSource.pubsub(InvalidationMessage.class);
+        subscriber = pubSub.subscribe(CHANNEL, msg -> {
             if (!trackerId.equals(msg.trackerId)) {
                 firer().invalidate(msg.toEvent());
-            }
-        });
-        topic.addListener(new BaseStatusListener() {
-            @Override
-            public void onSubscribe(String channel) {
-                firer().reconnect();
             }
         });
     }
 
     @Override
     protected void publishInvalidationEvent(CacheTracker.InvalidateEvent event) {
-        topic.publish(new InvalidationMessage(trackerId, event));
+        pubSub.publish(CHANNEL, new InvalidationMessage(trackerId, event));
     }
 
     public static final class InvalidationMessage {
