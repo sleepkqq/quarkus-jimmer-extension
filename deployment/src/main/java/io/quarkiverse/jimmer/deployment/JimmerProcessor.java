@@ -745,7 +745,11 @@ final class JimmerProcessor {
                 .addBeanClass(AssociationEvictionGuard.class)
                 .build());
 
-        if (QuarkusClassLoader.isClassPresentAtRuntime("org.redisson.api.RedissonClient")) {
+        // Gate on the redisson-quarkus producer, not the bare Redisson API: only the Quarkus
+        // integration contributes the RedissonClient bean the tracker producer injects — plain
+        // org.redisson:redisson on the classpath would register a producer with an unsatisfiable
+        // dependency and fail ArC validation.
+        if (QuarkusClassLoader.isClassPresentAtRuntime("io.quarkus.redisson.client.runtime.RedissonClientProducer")) {
             additionalBeans.produce(AdditionalBeanBuildItem.builder()
                     .setUnremovable()
                     .setDefaultScope(DotNames.SINGLETON)
