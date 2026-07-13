@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 
 import io.quarkiverse.jimmer.runtime.cfg.JimmerCacheConfig;
 import io.quarkus.redis.datasource.RedisDataSource;
+import io.vertx.mutiny.redis.client.Command;
+import io.vertx.mutiny.redis.client.Request;
 
 /**
  * {@link CacheFactory} building per-entity chain caches from {@link JimmerCacheConfig}:
@@ -55,6 +57,19 @@ public class JimmerRedisCacheFactory implements CacheFactory {
             configByType.put(entity.type(), entity);
             LOGGER.info("Jimmer cache enabled for entity {} [mode={}]", entity.type(), entity.mode());
         }
+        if (redisDataSource != null && !configByType.isEmpty()) {
+            warmUpConnection();
+        }
+    }
+
+    /**
+     * The batched writes/deletes go through the low-level {@code Redis} client whose connection is
+     * established lazily — without this, the first write after a pod start pays the connection
+     * setup (~400ms observed) inside a user request. Also fails the start fast when Redis is down.
+     */
+    private void warmUpConnection() {
+        redisDataSource.getReactive().getRedis()
+                .sendAndAwait(Request.cmd(Command.PING));
     }
 
     @Override
