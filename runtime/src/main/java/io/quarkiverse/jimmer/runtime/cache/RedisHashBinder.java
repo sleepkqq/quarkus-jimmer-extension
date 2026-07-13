@@ -16,20 +16,23 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import io.quarkus.redis.datasource.RedisDataSource;
-import io.quarkus.redis.datasource.hash.HashCommands;
-import io.quarkus.redis.datasource.value.GetExArgs;
-import io.quarkus.redis.datasource.value.ValueCommands;
+import io.vertx.mutiny.redis.client.Command;
+import io.vertx.mutiny.redis.client.Redis;
+import io.vertx.mutiny.redis.client.Request;
+import io.vertx.mutiny.redis.client.Response;
 
 /**
  * Redis tier of the Jimmer multi-view association cache on the Quarkus Redis (Vert.x) client.
  * Ported from Jimmer's deprecated {@code org.babyfish.jimmer.sql.cache.redis.quarkus} package —
  * framework-specific binders are the extension's responsibility.
+ *
+ * <p>Reads, writes and deletes go through the low-level client as ONE pipelined batch instead of
+ * a command per key. TTL is applied with {@code PEXPIRE} — the ported code used {@code GETEX},
+ * which is a string command and fails with {@code WRONGTYPE} against these hash keys.</p>
  */
 public class RedisHashBinder<K, V> extends AbstractRemoteHashBinder<K, V> {
 
-    private final HashCommands<String, String, byte[]> hashCommands;
-
-    private final ValueCommands<String, byte[]> valueCommands;
+    private final Redis redis;
 
     protected RedisHashBinder(
             @Nullable ImmutableType type,
@@ -41,8 +44,7 @@ public class RedisHashBinder<K, V> extends AbstractRemoteHashBinder<K, V> {
             int randomPercent,
             @NotNull RedisDataSource redisDataSource) {
         super(type, prop, tracker, jsonCodec, keyPrefixProvider, duration, randomPercent);
-        this.hashCommands = redisDataSource.hash(byte[].class);
-        this.valueCommands = redisDataSource.value(byte[].class);
+        this.redis = redisDataSource.getReactive().getRedis();
     }
 
     @Override
@@ -50,28 +52,43 @@ public class RedisHashBinder<K, V> extends AbstractRemoteHashBinder<K, V> {
         if (keys.isEmpty()) {
             return null;
         }
-        List<byte[]> list = new ArrayList<>(keys.size());
+        List<Request> requests = new ArrayList<>(keys.size());
         for (String key : keys) {
-            list.add(hashCommands.hget(key, hashKey));
+            requests.add(Request.cmd(Command.HGET).arg(key).arg(hashKey));
+        }
+        List<Response> responses = redis.batchAndAwait(requests);
+        List<byte[]> list = new ArrayList<>(responses.size());
+        for (Response response : responses) {
+            list.add(response == null ? null : response.toBytes());
         }
         return list;
     }
 
     @Override
     protected void write(Map<String, byte[]> map, String hashKey) {
+        if (map.isEmpty()) {
+            return;
+        }
+        List<Request> requests = new ArrayList<>(map.size() * 2);
         for (Map.Entry<String, byte[]> e : map.entrySet()) {
-            hashCommands.hset(e.getKey(), hashKey, e.getValue());
+            requests.add(Request.cmd(Command.HSET).arg(e.getKey()).arg(hashKey).arg(e.getValue()));
         }
         for (String key : map.keySet()) {
-            valueCommands.getex(key, new GetExArgs().px(nextExpireMillis()));
+            requests.add(Request.cmd(Command.PEXPIRE).arg(key).arg(nextExpireMillis()));
         }
+        redis.batchAndAwait(requests);
     }
 
     @Override
     protected void deleteAllSerializedKeys(List<String> serializedKeys) {
-        for (String key : serializedKeys) {
-            valueCommands.getdel(key);
+        if (serializedKeys.isEmpty()) {
+            return;
         }
+        Request del = Request.cmd(Command.DEL);
+        for (String key : serializedKeys) {
+            del.arg(key);
+        }
+        redis.sendAndAwait(del);
     }
 
     @Override
