@@ -36,6 +36,15 @@ public interface JimmerCacheConfig {
      */
     List<EntityCacheConfig> entities();
 
+    /**
+     * Log every cache tier operation at INFO under the {@code jimmer.cache} logger, in the same
+     * compact one-line style as the {@code jimmer.sql} SQL log: GET with per-tier hit counts, SET
+     * with entry counts, DELETE with key counts. A GET that misses every tier proceeds to the
+     * database and shows up in the SQL log as a {@code [LOAD]} statement.
+     */
+    @WithDefault("false")
+    boolean logOperations();
+
     @ConfigGroup
     interface EntityCacheConfig {
 
@@ -79,17 +88,6 @@ public interface JimmerCacheConfig {
          */
         @WithDefault("true")
         boolean cacheAssociations();
-
-        /**
-         * Arms {@link io.quarkiverse.jimmer.runtime.cache.AssociationEvictionGuard} for this entity: on every
-         * insert/update/delete, force-evicts every inverse association cache reachable from a real-FK reference
-         * prop, instead of trusting Jimmer's own diff-based auto eviction. Defaults to {@code false} — only set
-         * {@code true} on entities actually affected by the eviction-asymmetry bug (typically a child with two
-         * real-FK columns pointing at two different cached parents, e.g. a composite-key join row), since the
-         * guard duplicates eviction work Jimmer already does correctly for everyone else.
-         */
-        @WithDefault("false")
-        boolean forceAssociationEvict();
 
         /**
          * Random jitter percent added to the remote TTL to avoid a synchronized mass expiry (cache stampede).

@@ -32,13 +32,18 @@ public class JimmerRedisCacheFactory implements CacheFactory {
     private final RedisDataSource redisDataSource;
     private final CacheTracker tracker;
     private final Map<String, JimmerCacheConfig.EntityCacheConfig> configByType;
+    private final SchemaRemoteKeyPrefixProvider keyPrefixProvider;
+    private final boolean operationLog;
 
     public JimmerRedisCacheFactory(
             RedisDataSource redisDataSource,
             JimmerCacheConfig config,
+            String defaultSchema,
             CacheTracker tracker) {
         this.redisDataSource = redisDataSource;
         this.tracker = tracker;
+        this.keyPrefixProvider = new SchemaRemoteKeyPrefixProvider(defaultSchema);
+        this.operationLog = config.logOperations();
         this.configByType = new LinkedHashMap<>();
         for (JimmerCacheConfig.EntityCacheConfig entity : config.entities()) {
             if (entity.mode() != CacheMode.LOCAL_ONLY && redisDataSource == null) {
@@ -59,7 +64,7 @@ public class JimmerRedisCacheFactory implements CacheFactory {
             return null;
         }
         if (config.mode() == CacheMode.LOCAL_ONLY) {
-            return LocalOnlyCaches.create(type, null, config, tracker);
+            return LocalOnlyCaches.create(type, null, config, tracker, operationLog);
         }
         return creator(config).createForObject(type);
     }
@@ -86,14 +91,18 @@ public class JimmerRedisCacheFactory implements CacheFactory {
             return null;
         }
         if (config.mode() == CacheMode.LOCAL_ONLY) {
-            return (T) LocalOnlyCaches.create(null, prop, config, tracker);
+            return (T) LocalOnlyCaches.create(null, prop, config, tracker, operationLog);
         }
         return (T) (Cache) creator(config).createForProp(prop, false);
     }
 
     private CacheCreator creator(JimmerCacheConfig.EntityCacheConfig config) {
-        CacheCreator creator = new RedisCacheCreator(redisDataSource)
-                .withRemoteDuration(config.remoteTtl(), config.randomPercent());
+        RedisCacheCreator redisCreator = new RedisCacheCreator(redisDataSource)
+                .withKeyPrefixProvider(keyPrefixProvider);
+        if (operationLog) {
+            redisCreator = redisCreator.withOperationLog();
+        }
+        CacheCreator creator = redisCreator.withRemoteDuration(config.remoteTtl(), config.randomPercent());
 
         if (config.mode() == CacheMode.FULL) {
             creator = creator.withLocalCache(config.localMaxSize(), config.localTtl());

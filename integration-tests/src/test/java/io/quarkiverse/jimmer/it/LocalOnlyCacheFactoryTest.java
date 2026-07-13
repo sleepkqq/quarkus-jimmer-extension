@@ -50,7 +50,17 @@ class LocalOnlyCacheFactoryTest {
     }
 
     private static JimmerCacheConfig config(JimmerCacheConfig.EntityCacheConfig... entities) {
-        return () -> List.of(entities);
+        return new JimmerCacheConfig() {
+            @Override
+            public List<EntityCacheConfig> entities() {
+                return List.of(entities);
+            }
+
+            @Override
+            public boolean logOperations() {
+                return false;
+            }
+        };
     }
 
     private static JimmerCacheConfig.EntityCacheConfig entity(String type, CacheMode mode) {
@@ -83,11 +93,6 @@ class LocalOnlyCacheFactoryTest {
             @Override
             public boolean cacheAssociations() {
                 return true;
-            }
-
-            @Override
-            public boolean forceAssociationEvict() {
-                return false;
             }
 
             @Override

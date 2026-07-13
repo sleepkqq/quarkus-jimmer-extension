@@ -24,8 +24,10 @@ public class JimmerLocalCacheFactory implements CacheFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(JimmerLocalCacheFactory.class);
 
     private final Map<String, JimmerCacheConfig.EntityCacheConfig> configByType;
+    private final boolean operationLog;
 
     public JimmerLocalCacheFactory(JimmerCacheConfig config) {
+        this.operationLog = config.logOperations();
         this.configByType = new LinkedHashMap<>();
         for (JimmerCacheConfig.EntityCacheConfig entity : config.entities()) {
             if (entity.mode() != CacheMode.LOCAL_ONLY) {
@@ -46,7 +48,7 @@ public class JimmerLocalCacheFactory implements CacheFactory {
         if (config == null) {
             return null;
         }
-        return LocalOnlyCaches.create(type, null, config, null);
+        return LocalOnlyCaches.create(type, null, config, null, operationLog);
     }
 
     @Override
@@ -65,7 +67,7 @@ public class JimmerLocalCacheFactory implements CacheFactory {
         if (config == null || !config.cacheAssociations() || !isCachedAssociation(prop)) {
             return null;
         }
-        return (T) LocalOnlyCaches.create(null, prop, config, null);
+        return (T) LocalOnlyCaches.create(null, prop, config, null, operationLog);
     }
 
     private boolean isCachedAssociation(ImmutableProp prop) {

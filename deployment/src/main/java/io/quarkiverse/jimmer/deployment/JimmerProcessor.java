@@ -91,7 +91,6 @@ import org.jboss.logging.Logger;
 import io.quarkiverse.jimmer.deployment.bytecode.JimmerRepositoryFactory;
 import io.quarkiverse.jimmer.runtime.*;
 import io.quarkiverse.jimmer.runtime.QuarkusSqlClientProducer;
-import io.quarkiverse.jimmer.runtime.cache.AssociationEvictionGuard;
 import io.quarkiverse.jimmer.runtime.cache.JimmerLocalCacheProducer;
 import io.quarkiverse.jimmer.runtime.cache.JimmerRedisCacheProducer;
 import io.quarkiverse.jimmer.runtime.cache.QuarkusRedisCacheTracker;
@@ -752,12 +751,6 @@ final class JimmerProcessor {
             return;
         }
 
-        // The guard resolves KSqlClient at startup — keep it behind the Redis gate so datasource-less
-        // apps (e.g. dev-mode smoke tests) still boot.
-        additionalBeans.produce(AdditionalBeanBuildItem.builder()
-                .setUnremovable()
-                .addBeanClass(AssociationEvictionGuard.class)
-                .build());
         additionalBeans.produce(AdditionalBeanBuildItem.builder()
                 .setUnremovable()
                 .setDefaultScope(DotNames.SINGLETON)

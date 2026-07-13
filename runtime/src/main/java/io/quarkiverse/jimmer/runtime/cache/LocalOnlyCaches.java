@@ -6,6 +6,7 @@ import org.babyfish.jimmer.sql.cache.Cache;
 import org.babyfish.jimmer.sql.cache.CacheTracker;
 import org.babyfish.jimmer.sql.cache.caffeine.CaffeineValueBinder;
 import org.babyfish.jimmer.sql.cache.chain.ChainCacheBuilder;
+import org.babyfish.jimmer.sql.cache.chain.LoadingBinder;
 import org.jetbrains.annotations.Nullable;
 
 import io.quarkiverse.jimmer.runtime.cfg.JimmerCacheConfig;
@@ -25,16 +26,18 @@ final class LocalOnlyCaches {
             @Nullable ImmutableType type,
             @Nullable ImmutableProp prop,
             JimmerCacheConfig.EntityCacheConfig config,
-            @Nullable CacheTracker tracker) {
+            @Nullable CacheTracker tracker,
+            boolean operationLog) {
         CaffeineValueBinder.Builder<K, V> caffeine = type != null
                 ? CaffeineValueBinder.forObject(type)
                 : CaffeineValueBinder.forProp(prop);
+        LoadingBinder<K, V> caffeineBinder = caffeine
+                .subscribe(tracker)
+                .maximumSize(config.localMaxSize())
+                .duration(config.localTtl())
+                .build();
         return new ChainCacheBuilder<K, V>()
-                .add(caffeine
-                        .subscribe(tracker)
-                        .maximumSize(config.localMaxSize())
-                        .duration(config.localTtl())
-                        .build())
+                .add(operationLog ? LoggingBinder.wrap(caffeineBinder) : caffeineBinder)
                 .add(tracker != null ? new InvalidationPublishBinder<>(type, prop, tracker) : null)
                 .build();
     }

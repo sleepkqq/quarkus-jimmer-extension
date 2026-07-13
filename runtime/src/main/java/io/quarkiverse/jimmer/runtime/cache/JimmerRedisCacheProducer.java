@@ -8,7 +8,9 @@ import org.babyfish.jimmer.sql.cache.CacheFactory;
 import org.babyfish.jimmer.sql.cache.CacheTracker;
 
 import io.quarkiverse.jimmer.runtime.cfg.JimmerCacheConfig;
+import io.quarkiverse.jimmer.runtime.cfg.JimmerRuntimeConfig;
 import io.quarkus.arc.Unremovable;
+import io.quarkus.datasource.common.runtime.DataSourceUtil;
 import io.quarkus.redis.datasource.RedisDataSource;
 
 /**
@@ -30,10 +32,16 @@ public class JimmerRedisCacheProducer {
     public CacheFactory jimmerCacheFactory(
             RedisDataSource redisDataSource,
             JimmerCacheConfig config,
+            JimmerRuntimeConfig runtimeConfig,
             Instance<CacheTracker> tracker) {
+        String defaultSchema = runtimeConfig.dataSources()
+                .get(DataSourceUtil.DEFAULT_DATASOURCE_NAME)
+                .defaultSchema()
+                .orElse(null);
         return new JimmerRedisCacheFactory(
                 redisDataSource,
                 config,
+                defaultSchema,
                 tracker.isResolvable() ? tracker.get() : null);
     }
 }

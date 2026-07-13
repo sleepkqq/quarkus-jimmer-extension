@@ -21,6 +21,14 @@ public interface JimmerDataSourceBuildTimeConfig {
     boolean prettySql();
 
     /**
+     * One-line-per-statement SQL log under the {@code jimmer.sql} logger
+     * ({@code SQL SELECT social.users (20 rows) | 12ms [QUERY]}) — a production-friendly
+     * alternative to the verbose {@code show-sql} output. Takes precedence over {@code show-sql}.
+     */
+    @WithDefault("false")
+    boolean compactSqlLog();
+
+    /**
      * jimmer.inlineSqlVariables
      */
     @WithDefault("false")

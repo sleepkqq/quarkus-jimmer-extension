@@ -8,6 +8,8 @@ import org.babyfish.jimmer.meta.ImmutableProp;
 import org.babyfish.jimmer.meta.ImmutableType;
 import org.babyfish.jimmer.sql.cache.CacheTracker;
 import org.babyfish.jimmer.sql.cache.spi.AbstractCacheTracker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
@@ -24,6 +26,8 @@ import io.quarkus.redis.datasource.pubsub.PubSubCommands;
  */
 public class QuarkusRedisCacheTracker extends AbstractCacheTracker {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(QuarkusRedisCacheTracker.class);
+
     private static final String CHANNEL = "_quarkus_jimmer_:invalidate";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -39,7 +43,10 @@ public class QuarkusRedisCacheTracker extends AbstractCacheTracker {
         pubSub = redisDataSource.pubsub(InvalidationMessage.class);
         subscriber = pubSub.subscribe(CHANNEL, msg -> {
             if (!trackerId.equals(msg.trackerId)) {
-                firer().invalidate(msg.toEvent());
+                CacheTracker.InvalidateEvent event = msg.toEvent();
+                if (event != null) {
+                    firer().invalidate(event);
+                }
             }
         });
     }
@@ -71,6 +78,9 @@ public class QuarkusRedisCacheTracker extends AbstractCacheTracker {
 
         CacheTracker.InvalidateEvent toEvent() {
             ImmutableType type = resolveType();
+            if (type == null) {
+                return null;
+            }
             // JSON carries no id type info — rebuild the collection as the entity's id type
             // (UUIDs and longs otherwise arrive as strings/ints and never match cache keys).
             CollectionType idsType = MAPPER.getTypeFactory()
@@ -83,12 +93,17 @@ public class QuarkusRedisCacheTracker extends AbstractCacheTracker {
             return new CacheTracker.InvalidateEvent(type, typedIds);
         }
 
+        /**
+         * Several services may share one Redis and therefore this pub/sub channel — an invalidation
+         * for an entity class this service does not have is another service's business, not an error.
+         */
         private ImmutableType resolveType() {
             Class<?> javaType;
             try {
                 javaType = Class.forName(typeName, true, Thread.currentThread().getContextClassLoader());
             } catch (ClassNotFoundException ex) {
-                throw new IllegalStateException("Cannot resolve the type name \"" + typeName + "\"", ex);
+                LOGGER.debug("Ignoring cache invalidation for unknown entity type {}", typeName);
+                return null;
             }
             return ImmutableType.get(javaType);
         }

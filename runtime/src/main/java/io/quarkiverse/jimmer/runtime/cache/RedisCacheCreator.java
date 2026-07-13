@@ -7,6 +7,7 @@ import org.babyfish.jimmer.meta.ImmutableProp;
 import org.babyfish.jimmer.meta.ImmutableType;
 import org.babyfish.jimmer.sql.cache.Cache;
 import org.babyfish.jimmer.sql.cache.CacheCreator;
+import org.babyfish.jimmer.sql.cache.RemoteKeyPrefixProvider;
 import org.babyfish.jimmer.sql.cache.caffeine.CaffeineHashBinder;
 import org.babyfish.jimmer.sql.cache.caffeine.CaffeineValueBinder;
 import org.babyfish.jimmer.sql.cache.chain.ChainCacheBuilder;
@@ -59,6 +60,22 @@ public class RedisCacheCreator extends AbstractCacheCreator {
                 .build();
     }
 
+    /**
+     * Jimmer's {@link AbstractCacheCreator} reads a key-prefix provider from its config chain but
+     * offers no builder method to set one — this fills the gap for our binders.
+     */
+    public RedisCacheCreator withKeyPrefixProvider(RemoteKeyPrefixProvider keyPrefixProvider) {
+        return (RedisCacheCreator) newCacheCreator(new KeyPrefixProviderCfg(cfg, keyPrefixProvider));
+    }
+
+    /**
+     * Wraps every binder of the built chains with a {@link LoggingBinder} decorator
+     * ({@code jimmer.cache} logger).
+     */
+    public RedisCacheCreator withOperationLog() {
+        return (RedisCacheCreator) newCacheCreator(new OperationLogCfg(cfg));
+    }
+
     @Override
     protected Args newArgs(Cfg cfg) {
         return new Args(cfg);
@@ -74,12 +91,13 @@ public class RedisCacheCreator extends AbstractCacheCreator {
         if (!args.useLocalCache) {
             return null;
         }
-        return CaffeineValueBinder
+        LoadingBinder<K, V> binder = CaffeineValueBinder
                 .<K, V>forObject(type)
                 .subscribe(args.tracker)
                 .maximumSize(args.localCacheMaximumSize)
                 .duration(args.localCacheDuration)
                 .build();
+        return args.operationLog ? LoggingBinder.wrap(binder) : binder;
     }
 
     private <K, V> LoadingBinder<K, V> caffeineValueBinder(ImmutableProp prop) {
@@ -87,12 +105,13 @@ public class RedisCacheCreator extends AbstractCacheCreator {
         if (!args.useLocalCache) {
             return null;
         }
-        return CaffeineValueBinder
+        LoadingBinder<K, V> binder = CaffeineValueBinder
                 .<K, V>forProp(prop)
                 .subscribe(args.tracker)
                 .maximumSize(args.localCacheMaximumSize)
                 .duration(args.localCacheDuration)
                 .build();
+        return args.operationLog ? LoggingBinder.wrap(binder) : binder;
     }
 
     private <K, V> SimpleBinder<K, V> caffeineHashBinder(ImmutableProp prop) {
@@ -100,51 +119,55 @@ public class RedisCacheCreator extends AbstractCacheCreator {
         if (!args.useMultiViewLocalCache) {
             return null;
         }
-        return CaffeineHashBinder
+        SimpleBinder<K, V> binder = CaffeineHashBinder
                 .<K, V>forProp(prop)
                 .subscribe(args.tracker)
                 .maximumSize(args.multiViewLocalCacheMaximumSize)
                 .duration(args.multiViewLocalCacheDuration)
                 .build();
+        return args.operationLog ? LoggingBinder.wrap(binder) : binder;
     }
 
     private <K, V> SimpleBinder<K, V> redisValueBinder(ImmutableType type) {
         Args args = args();
-        return RedisValueBinder
+        SimpleBinder<K, V> binder = RedisValueBinder
                 .<K, V>forObject(type, args.jsonCodec)
                 .publish(args.tracker)
-                .keyPrefixProvider(args.keyPrefixProvider)
+                .keyPrefixProvider(args.effectiveKeyPrefixProvider)
                 .duration(args.duration)
                 .randomPercent(args.randomDurationPercent)
                 .redis(args.redisDataSource)
                 .build()
                 .lock(args.locker, args.lockWaitDuration, args.lockLeaseDuration);
+        return args.operationLog ? LoggingBinder.wrap(binder) : binder;
     }
 
     private <K, V> SimpleBinder<K, V> redisValueBinder(ImmutableProp prop) {
         Args args = args();
-        return RedisValueBinder
+        SimpleBinder<K, V> binder = RedisValueBinder
                 .<K, V>forProp(prop, args.jsonCodec)
                 .publish(args.tracker)
-                .keyPrefixProvider(args.keyPrefixProvider)
+                .keyPrefixProvider(args.effectiveKeyPrefixProvider)
                 .duration(args.duration)
                 .randomPercent(args.randomDurationPercent)
                 .redis(args.redisDataSource)
                 .build()
                 .lock(args.locker, args.lockWaitDuration, args.lockLeaseDuration);
+        return args.operationLog ? LoggingBinder.wrap(binder) : binder;
     }
 
     private <K, V> SimpleBinder.Parameterized<K, V> redisHashBinder(ImmutableProp prop) {
         Args args = args();
-        return RedisHashBinder
+        SimpleBinder.Parameterized<K, V> binder = RedisHashBinder
                 .<K, V>forProp(prop, args.jsonCodec)
                 .publish(args.tracker)
-                .keyPrefixProvider(args.keyPrefixProvider)
+                .keyPrefixProvider(args.effectiveKeyPrefixProvider)
                 .duration(args.multiVewDuration)
                 .randomPercent(args.randomDurationPercent)
                 .redis(args.redisDataSource)
                 .build()
                 .lock(args.locker, args.lockWaitDuration, args.lockLeaseDuration);
+        return args.operationLog ? LoggingBinder.wrap(binder) : binder;
     }
 
     private static class Root extends Cfg {
@@ -160,17 +183,41 @@ public class RedisCacheCreator extends AbstractCacheCreator {
         }
     }
 
+    private static class KeyPrefixProviderCfg extends Cfg {
+
+        final RemoteKeyPrefixProvider keyPrefixProvider;
+
+        KeyPrefixProviderCfg(Cfg prev, RemoteKeyPrefixProvider keyPrefixProvider) {
+            super(prev);
+            this.keyPrefixProvider = keyPrefixProvider;
+        }
+    }
+
+    private static class OperationLogCfg extends Cfg {
+
+        OperationLogCfg(Cfg prev) {
+            super(prev);
+        }
+    }
+
     static class Args extends AbstractCacheCreator.Args {
 
         final RedisDataSource redisDataSource;
 
         final JsonCodec<?> jsonCodec;
 
+        final RemoteKeyPrefixProvider effectiveKeyPrefixProvider;
+
+        final boolean operationLog;
+
         Args(Cfg cfg) {
             super(cfg);
             Root root = cfg.as(Root.class);
             this.redisDataSource = root.redisDataSource;
             this.jsonCodec = root.jsonCodec;
+            KeyPrefixProviderCfg prefixCfg = cfg.as(KeyPrefixProviderCfg.class);
+            this.effectiveKeyPrefixProvider = prefixCfg != null ? prefixCfg.keyPrefixProvider : this.keyPrefixProvider;
+            this.operationLog = cfg.as(OperationLogCfg.class) != null;
         }
     }
 }
