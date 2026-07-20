@@ -1,7 +1,7 @@
 package io.quarkiverse.jimmer.runtime.cache;
 
 import java.util.Collection;
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.babyfish.jimmer.meta.ImmutableProp;
@@ -28,9 +28,14 @@ public class InvalidationPublishBinder<K, V> extends AbstractTrackingProducerBin
         super(type, prop, tracker);
     }
 
+    /**
+     * Must be mutable: Jimmer's {@code ChainCacheImpl.SimpleNode} treats the returned map as its own
+     * accumulator and {@code putAll}s the values loaded from the rest of the chain into it, so an
+     * immutable empty map makes every miss fail with {@link UnsupportedOperationException}.
+     */
     @Override
     public Map<K, V> getAll(Collection<K> keys) {
-        return Collections.emptyMap();
+        return new LinkedHashMap<>();
     }
 
     @Override
