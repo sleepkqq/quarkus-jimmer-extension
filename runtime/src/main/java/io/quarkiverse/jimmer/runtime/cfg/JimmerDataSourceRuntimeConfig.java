@@ -142,8 +142,17 @@ public interface JimmerDataSourceRuntimeConfig {
     /**
      * jimmer.constraintViolationTranslatable
      */
-    @WithDefault("true")
+    @WithDefault("false")
     boolean constraintViolationTranslatable();
+
+    /**
+     * Register the built-in {@code SqlStateExceptionTranslator}, which maps a raw
+     * {@code SQLException} to a {@code JimmerDataAccessException} subtype by its {@code SQLState}.
+     * Effective only together with {@code constraintViolationTranslatable=false}. Disable to fully
+     * own exception translation with your own {@code ExceptionTranslator} beans.
+     */
+    @WithDefault("true")
+    boolean sqlStateExceptionTranslator();
 
     /**
      * jimmer.executorContextPrefixes

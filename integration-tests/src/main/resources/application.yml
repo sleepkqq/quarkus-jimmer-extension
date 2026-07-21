@@ -48,7 +48,7 @@ quarkus:
     mutation-transaction-required: false
     explicit-batch-enabled: false
     dumb-batch-acceptable: false
-    constraint-violation-translatable: true
+    constraint-violation-translatable: false
     DB2:
       dialect: org.babyfish.jimmer.sql.dialect.PostgresDialect
       show-sql: true
@@ -70,7 +70,7 @@ quarkus:
       mutation-transaction-required: false
       explicit-batch-enabled: false
       dumb-batch-acceptable: false
-      constraint-violation-translatable: true
+      constraint-violation-translatable: false
     database-validation:
       mode: NONE
     error-translator:

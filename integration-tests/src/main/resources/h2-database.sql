@@ -8,6 +8,7 @@ create table book_store(
     id identity(100, 1) not null,
     name varchar(50) not null,
     website varchar(100),
+    version int not null default 0,
     created_time timestamp not null,
     modified_time timestamp not null
 );

@@ -29,6 +29,27 @@
 - `quarkus.jimmer.<datasource>.default-save-result-reads-all-properties` (default: false, since jimmer 0.11.0)
 - `quarkus.jimmer.<datasource>.jdbc.default-fetch-size` (since jimmer 0.11.0)
 - `quarkus.jimmer.<datasource>.jdbc.default-query-timeout` (since jimmer 0.11.0)
+- `quarkus.jimmer.<datasource>.constraint-violation-translatable` (default: **false** — extension override; Jimmer's own default true). При `false` Jimmer НЕ переводит SQL-нарушения в `SaveException`; наверх идёт сырой `SQLException`.
+- `quarkus.jimmer.<datasource>.sql-state-exception-translator` (default: true). Регистрирует встроенный `SqlStateExceptionTranslator`, мапящий `SQLException` → `JimmerDataAccessException` по SQLState. Работает только вместе с `constraint-violation-translatable=false`.
+
+## Exception translation
+
+При `constraint-violation-translatable=false` встроенный `SqlStateExceptionTranslator`
+(`runtime.exception`) мапит сырой `SQLException` в подтипы `JimmerDataAccessException` по SQLState:
+
+| SQLState | Exception |
+|---|---|
+| `23505` | `DuplicateKeyException` |
+| `23503` | `ForeignKeyViolationException` |
+| `23502` | `NotNullViolationException` |
+| `23514` | `CheckViolationException` |
+| `40001` | `SerializationFailureException` (`TransientDataAccessException`) |
+| `40P01` | `DeadlockException` (`TransientDataAccessException`) |
+| прочие `23xxx` | `DataIntegrityViolationException` (fallback; напр. MySQL `23000`) |
+
+`OptimisticLockError`, `IllegalTargetId` и др. — это save-логика Jimmer, а не SQL-нарушения, поэтому
+translator их не трогает: остаются `SaveException`. Свои `ExceptionTranslator`-бины подхватываются
+автоматически; для полного контроля выключить `sql-state-exception-translator`.
 
 ## Multi-datasource
 

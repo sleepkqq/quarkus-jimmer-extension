@@ -51,6 +51,7 @@ import org.babyfish.jimmer.jackson.codec.JsonCodec;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerBuildTimeConfig;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerDataSourceRuntimeConfig;
 import io.quarkiverse.jimmer.runtime.executor.CompactSqlExecutor;
+import io.quarkiverse.jimmer.runtime.exception.SqlStateExceptionTranslator;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerRuntimeConfig;
 import io.quarkiverse.jimmer.runtime.cfg.support.QuarkusConnectionManager;
 import io.quarkiverse.jimmer.runtime.cfg.support.QuarkusLogicalDeletedValueGeneratorProvider;
@@ -221,6 +222,9 @@ class JQuarkusSqlClient extends JLazyInitializationSqlClient implements SqlClien
         }
 
         builder.addDraftInterceptors(interceptors);
+        if (runtimeConfig.dataSources().get(dataSourceName).sqlStateExceptionTranslator()) {
+            builder.addExceptionTranslator(new SqlStateExceptionTranslator());
+        }
         builder.addExceptionTranslators(exceptionTranslators);
         initializeByLanguage(builder);
         builder.addInitializers(new QuarkusEventInitializer());

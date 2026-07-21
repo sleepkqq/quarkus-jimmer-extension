@@ -42,6 +42,7 @@ Java/Kotlin target: JDK 21. Gradle 9.4.0.
 | `runtime.repository` | `JRepository<E, ID>`, `JRepositoryImpl` |
 | `runtime.repo` | `AbstractJavaRepository`, `AbstractKotlinRepository` |
 | `runtime.cache.impl` | `TransactionCacheOperatorFlusher` |
+| `runtime.exception` | `JimmerDataAccessException` + подтипы, `SqlStateExceptionTranslator` (SQLState→exception) |
 | `runtime.client.openapi` | OpenAPI generation recorders |
 | `runtime.client.ts` | TypeScript generation recorders |
 | `runtime.cloud` | Microservice exchange support |

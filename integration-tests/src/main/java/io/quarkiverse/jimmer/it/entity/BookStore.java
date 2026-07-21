@@ -21,6 +21,9 @@ public interface BookStore extends BaseEntity {
     @Nullable
     String website();
 
+    @Version
+    int version();
+
     @OneToMany(mappedBy = "store", orderedProps = {
             @OrderedProp("name"),
             @OrderedProp(value = "edition", desc = true)
