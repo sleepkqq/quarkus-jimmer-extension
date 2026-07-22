@@ -20,7 +20,6 @@ import org.babyfish.jimmer.error.CodeBasedException;
 import org.babyfish.jimmer.error.CodeBasedRuntimeException;
 import org.babyfish.jimmer.impl.util.ClassCache;
 import org.babyfish.jimmer.impl.util.PropCache;
-import org.babyfish.jimmer.impl.util.StaticCache;
 import org.babyfish.jimmer.impl.util.TypeCache;
 import org.babyfish.jimmer.jackson.ConverterMetadata;
 import org.babyfish.jimmer.meta.impl.Metadata;
@@ -943,15 +942,14 @@ final class JimmerProcessor {
     }
 
     /**
-     * Jimmer's metadata graph is not safe to initialize concurrently: StaticCache (and siblings)
-     * guard a ReentrantReadWriteLock while ImmutablePropImpl/ImmutableTypeImpl take their own locks,
+     * Jimmer's metadata graph is not safe to initialize concurrently: CacheSlots (and siblings)
+     * back the metadata caches while ImmutablePropImpl/ImmutableTypeImpl take their own locks,
      * and GraalVM runs class initializers across the ForkJoinPool. Build-time initializing them
      * deadlocks the image build. Keep the whole cache/metadata machinery at run time.
      */
     @BuildStep
     void runtimeInitializeJimmerCaches(BuildProducer<RuntimeInitializedClassBuildItem> runtimeInitialized) {
         for (Class<?> clazz : new Class<?>[]{
-                StaticCache.class,
                 ClassCache.class,
                 TypeCache.class,
                 PropCache.class,
@@ -969,6 +967,7 @@ final class JimmerProcessor {
         }
         // Package-private / private nested in Jimmer — not referencable as class literals.
         for (String className : new String[]{
+                "org.babyfish.jimmer.impl.util.CacheSlots",
                 "org.babyfish.jimmer.sql.cache.ObjectCacheFetchers",
                 "org.babyfish.jimmer.sql.ast.impl.table.WeakJoinHandleImpl",
                 "org.babyfish.jimmer.sql.ast.impl.table.WeakJoinHandleImpl$EntityTableHandleImpl",
