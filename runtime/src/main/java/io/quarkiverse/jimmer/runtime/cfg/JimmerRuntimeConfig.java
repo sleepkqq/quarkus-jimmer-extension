@@ -35,8 +35,8 @@ public interface JimmerRuntimeConfig {
      * <p>
      * Builds the Jimmer metadata graph and the SqlClient on the main thread during startup,
      * before the Quarkus scheduler starts. Prevents scheduled jobs or other concurrent startup
-     * work from racing repository class-init on the lazily initialized SqlClient (deadlock on
-     * StaticCache read-write lock vs ImmutablePropImpl target-type lock). Disable to restore
+     * work from racing repository class-init on the lazily initialized SqlClient (stall on the
+     * static lock guarding lazy target-type resolution, {@code ImmutablePropImpl.META_LOCK}). Disable to restore
      * fully lazy initialization, e.g. when the application must be able to start without a
      * reachable database.
      */

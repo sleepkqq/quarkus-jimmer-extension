@@ -24,8 +24,8 @@ import io.quarkus.runtime.StartupEvent;
  * Quarkus scheduler starts its own StartupEvent observer at {@code PLATFORM_BEFORE} and interval
  * triggers fire their first execution immediately, so the metadata graph must already be built
  * when the first scheduled job runs. Otherwise a scheduled job racing repository class-init on
- * another thread can deadlock Jimmer metadata initialization (StaticCache read-write lock vs
- * ImmutablePropImpl target-type lock).
+ * another thread can stall Jimmer metadata initialization on the static lock guarding lazy
+ * target-type resolution ({@code ImmutablePropImpl.META_LOCK}).
  */
 @ApplicationScoped
 public class JimmerMetadataInitializer {

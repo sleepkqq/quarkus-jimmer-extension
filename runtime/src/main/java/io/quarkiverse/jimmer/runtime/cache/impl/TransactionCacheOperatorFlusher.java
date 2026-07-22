@@ -55,9 +55,9 @@ public class TransactionCacheOperatorFlusher {
     /**
      * The retry tick must never be the first user of a lazily initialized SqlClient: building the
      * Jimmer metadata graph from the scheduler thread while application startup is still creating
-     * repository beans can deadlock (StaticCache read-write lock vs ImmutablePropImpl target-type
-     * lock). Operators whose SqlClient is not initialized yet have nothing produced by this
-     * application instance to flush; their pending rows (e.g. left over by a previous crashed
+     * repository beans can stall on the static lock guarding lazy target-type resolution
+     * ({@code ImmutablePropImpl.META_LOCK}). Operators whose SqlClient is not initialized yet have
+     * nothing produced by this application instance to flush; their pending rows (e.g. left over by a previous crashed
      * instance) are picked up by the first tick after the SqlClient is initialized.
      */
     @Scheduled(every = "${quarkus.jimmer.transaction-cache-operator-fixed-delay}", identity = "jimmer.transaction-cache-operator-job")
