@@ -1,5 +1,14 @@
 package io.quarkiverse.jimmer.runtime.repository.support
 
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Page
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Slice
+import java.util.UUID
+import org.babyfish.jimmer.sql.ast.Selection
+import org.babyfish.jimmer.sql.kt.ast.expression.`gt?`
+import org.babyfish.jimmer.sql.kt.ast.expression.asc
+import org.babyfish.jimmer.sql.kt.ast.expression.KNonNullExpression
+import org.babyfish.jimmer.sql.kt.ast.table.KNonNullTable
+
 import io.quarkiverse.jimmer.runtime.repository.KRepository
 import io.quarkiverse.jimmer.runtime.repository.common.Sort
 import io.quarkiverse.jimmer.runtime.repository.orderBy
@@ -94,6 +103,20 @@ open class KRepositoryImpl<E: Any, ID: Any> (override val sql: KSqlClient, entit
             select(table.fetch(fetcher))
         }.fetchPage(pagination.index, pagination.size)
 
+    override fun findUuidV7Slice(
+        limit: Int,
+        after: UUID?,
+        fetcher: Fetcher<E>?
+    ): UuidV7Slice<E> =
+        uuidV7Slice(limit, after) { fetch(fetcher) }
+
+    override fun findUuidV7Page(
+        limit: Int,
+        after: UUID?,
+        fetcher: Fetcher<E>?
+    ): UuidV7Page<E> =
+        uuidV7Page(limit, after) { fetch(fetcher) }
+
     override fun count(): Long =
         sql.createQuery(entityType) {
             select(org.babyfish.jimmer.sql.kt.ast.expression.count(table))
@@ -184,5 +207,43 @@ open class KRepositoryImpl<E: Any, ID: Any> (override val sql: KSqlClient, entit
                 orderBy(block)
                 select(table.fetch(viewType))
             }.fetchPage(pageIndex, pageSize)
+
+        override fun findUuidV7Slice(limit: Int, after: UUID?): UuidV7Slice<V> =
+            uuidV7Slice(limit, after) { fetch(viewType) }
+
+        override fun findUuidV7Page(limit: Int, after: UUID?): UuidV7Page<V> =
+            uuidV7Page(limit, after) { fetch(viewType) }
+    }
+
+    private fun <R> uuidV7Slice(
+        limit: Int,
+        after: UUID?,
+        selection: KNonNullTable<E>.() -> Selection<R>
+    ): UuidV7Slice<R> {
+        require(limit > 0) { "limit must be greater than 0" }
+        require(limit < Int.MAX_VALUE) { "limit must be less than Int.MAX_VALUE" }
+        require(type.idProp.returnClass == UUID::class.java) { "UUIDv7 paging requires a UUID entity id" }
+        require(after == null || after.version() == 7) { "UUIDv7 paging requires a version 7 cursor" }
+        val tuples = sql.createQuery(entityType) {
+            val id = table.getId<UUID>() as KNonNullExpression<UUID>
+            where(id `gt?` after)
+            orderBy(id.asc())
+            select(id, table.selection())
+        }.limit(limit + 1, 0).execute()
+        val hasNext = tuples.size > limit
+        val rows = tuples.take(limit)
+        return UuidV7Slice(
+            rows.map { it._2 },
+            if (hasNext) rows.last()._1 else null
+        )
+    }
+
+    private fun <R> uuidV7Page(
+        limit: Int,
+        after: UUID?,
+        selection: KNonNullTable<E>.() -> Selection<R>
+    ): UuidV7Page<R> {
+        val slice = uuidV7Slice(limit, after, selection)
+        return UuidV7Page(slice.rows, slice.nextCursor, count())
     }
 }

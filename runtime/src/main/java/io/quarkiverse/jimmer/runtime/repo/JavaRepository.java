@@ -111,6 +111,28 @@ public interface JavaRepository<E, ID> {
             TypedProp.Scalar<?, ?>... sortedProps);
 
     @NotNull
+    default UuidV7Slice<E> findUuidV7Slice(int limit, java.util.UUID after) {
+        return findUuidV7Slice(limit, after, (Fetcher<E>) null);
+    }
+
+    @NotNull
+    UuidV7Slice<E> findUuidV7Slice(int limit, java.util.UUID after, @Nullable Fetcher<E> fetcher);
+
+    @NotNull
+    <V extends View<E>> UuidV7Slice<V> findUuidV7Slice(int limit, java.util.UUID after, Class<V> viewType);
+
+    @NotNull
+    default UuidV7Page<E> findUuidV7Page(int limit, java.util.UUID after) {
+        return findUuidV7Page(limit, after, (Fetcher<E>) null);
+    }
+
+    @NotNull
+    UuidV7Page<E> findUuidV7Page(int limit, java.util.UUID after, @Nullable Fetcher<E> fetcher);
+
+    @NotNull
+    <V extends View<E>> UuidV7Page<V> findUuidV7Page(int limit, java.util.UUID after, Class<V> viewType);
+
+    @NotNull
     SimpleEntitySaveCommand<E> saveCommand(@NotNull E entity);
 
     @NotNull

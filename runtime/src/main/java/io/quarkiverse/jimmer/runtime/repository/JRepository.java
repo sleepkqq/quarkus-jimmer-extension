@@ -1,5 +1,8 @@
 package io.quarkiverse.jimmer.runtime.repository;
 
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Page;
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Slice;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,6 +84,18 @@ public interface JRepository<E, ID> {
     Page<E> findAll(@NotNull Pagination pagination);
 
     Page<E> findAll(Pagination pagination, Fetcher<E> fetcher);
+
+    default UuidV7Slice<E> findUuidV7Slice(int limit, java.util.UUID after) {
+        return findUuidV7Slice(limit, after, (Fetcher<E>) null);
+    }
+
+    UuidV7Slice<E> findUuidV7Slice(int limit, java.util.UUID after, Fetcher<E> fetcher);
+
+    default UuidV7Page<E> findUuidV7Page(int limit, java.util.UUID after) {
+        return findUuidV7Page(limit, after, (Fetcher<E>) null);
+    }
+
+    UuidV7Page<E> findUuidV7Page(int limit, java.util.UUID after, Fetcher<E> fetcher);
 
     default boolean existsById(@NotNull ID id) {
         return findNullable(id) != null;
@@ -971,5 +986,9 @@ public interface JRepository<E, ID> {
         Page<V> findAll(int pageIndex, int pageSize, TypedProp.Scalar<?, ?>... sortedProps);
 
         Page<V> findAll(int pageIndex, int pageSize, Sort sort);
+
+        UuidV7Slice<V> findUuidV7Slice(int limit, java.util.UUID after);
+
+        UuidV7Page<V> findUuidV7Page(int limit, java.util.UUID after);
     }
 }

@@ -1,5 +1,9 @@
 package io.quarkiverse.jimmer.runtime.repository
 
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Page
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Slice
+import java.util.UUID
+
 import io.quarkiverse.jimmer.runtime.repository.common.Sort
 import io.quarkiverse.jimmer.runtime.repository.support.Pagination
 import org.babyfish.jimmer.Input
@@ -72,6 +76,18 @@ interface KRepository<E: Any, ID: Any> {
     fun findAll(pagination: Pagination): Page<E>
 
     fun findAll(pagination: Pagination, fetcher: Fetcher<E>? = null): Page<E>
+
+    fun findUuidV7Slice(
+        limit: Int,
+        after: UUID? = null,
+        fetcher: Fetcher<E>? = null
+    ): UuidV7Slice<E>
+
+    fun findUuidV7Page(
+        limit: Int,
+        after: UUID? = null,
+        fetcher: Fetcher<E>? = null
+    ): UuidV7Page<E>
 
     fun existsById(id: ID): Boolean =
         findNullable(id) != null
@@ -618,5 +634,9 @@ interface KRepository<E: Any, ID: Any> {
         fun findAll(pageIndex: Int, pageSize: Int, block: (SortDsl<E>.() -> Unit)): Page<V>
 
         fun findAll(pageIndex: Int, pageSize: Int, sort: Sort): Page<V>
+
+        fun findUuidV7Slice(limit: Int, after: UUID? = null): UuidV7Slice<V>
+
+        fun findUuidV7Page(limit: Int, after: UUID? = null): UuidV7Page<V>
     }
 }

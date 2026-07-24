@@ -45,6 +45,40 @@ public class TestJavaRepositoryTestCase {
     }
 
     @Test
+    void testUserRoleJavaRepositoryUuidV7Paging() {
+        var first = userRoleJavaRepository.findUuidV7Slice(2, null);
+        Assertions.assertEquals(java.util.List.of(
+                UUID.fromString("0191c205-0000-7000-8000-000000000001"),
+                UUID.fromString("0191c205-0001-7000-8000-000000000002")),
+                first.getRows().stream().map(UserRole::id).toList());
+        Assertions.assertEquals(UUID.fromString("0191c205-0001-7000-8000-000000000002"), first.getNextCursor());
+        Assertions.assertTrue(first.getHasNext());
+
+        var second = userRoleJavaRepository.findUuidV7Slice(2, first.getNextCursor());
+        Assertions.assertEquals(java.util.List.of(
+                UUID.fromString("0191c205-0002-7000-8000-000000000003"),
+                UUID.fromString("0191c205-0003-7000-8000-000000000004")),
+                second.getRows().stream().map(UserRole::id).toList());
+        Assertions.assertEquals(UUID.fromString("0191c205-0003-7000-8000-000000000004"), second.getNextCursor());
+        Assertions.assertTrue(second.getHasNext());
+
+        var last = userRoleJavaRepository.findUuidV7Slice(2, second.getNextCursor());
+        Assertions.assertEquals(java.util.List.of(UUID.fromString(Constant.USER_ROLE_ID)),
+                last.getRows().stream().map(UserRole::id).toList());
+        Assertions.assertNull(last.getNextCursor());
+        Assertions.assertFalse(last.getHasNext());
+
+        var page = userRoleJavaRepository.findUuidV7Page(2, null);
+        Assertions.assertEquals(5, page.getTotalRowCount());
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> userRoleJavaRepository.findUuidV7Slice(0, null));
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> userRoleJavaRepository.findUuidV7Slice(1, UUID.randomUUID()));
+        Assertions.assertThrows(IllegalArgumentException.class,
+                () -> bookJavaRepository.findUuidV7Slice(1, null));
+    }
+
+    @Test
     void testMethodInBookJavaRepositoryFindById() {
         Book book = bookJavaRepository.methodInBookJavaRepositoryFindById(1L);
         Assertions.assertNotNull(book);

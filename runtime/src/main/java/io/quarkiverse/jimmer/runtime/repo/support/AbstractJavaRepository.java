@@ -1,5 +1,8 @@
 package io.quarkiverse.jimmer.runtime.repo.support;
 
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Page;
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Slice;
+
 import java.util.*;
 import java.util.function.Function;
 
@@ -164,6 +167,38 @@ public class AbstractJavaRepository<E, ID> implements JavaRepository<E, ID> {
 
     @NotNull
     @Override
+    public UuidV7Slice<E> findUuidV7Slice(int limit, java.util.UUID after, @Nullable Fetcher<E> fetcher) {
+        return uuidV7Slice(limit, after, fetcher, null);
+    }
+
+    @NotNull
+    @Override
+    public <V extends View<E>> UuidV7Slice<V> findUuidV7Slice(
+            int limit,
+            java.util.UUID after,
+            Class<V> viewType) {
+        DtoMetadata<E, V> metadata = DtoMetadata.of(viewType);
+        return uuidV7Slice(limit, after, metadata.getFetcher(), metadata.getConverter());
+    }
+
+    @NotNull
+    @Override
+    public UuidV7Page<E> findUuidV7Page(int limit, java.util.UUID after, @Nullable Fetcher<E> fetcher) {
+        return uuidV7Page(limit, after, fetcher, null);
+    }
+
+    @NotNull
+    @Override
+    public <V extends View<E>> UuidV7Page<V> findUuidV7Page(
+            int limit,
+            java.util.UUID after,
+            Class<V> viewType) {
+        DtoMetadata<E, V> metadata = DtoMetadata.of(viewType);
+        return uuidV7Page(limit, after, metadata.getFetcher(), metadata.getConverter());
+    }
+
+    @NotNull
+    @Override
     public SimpleEntitySaveCommand<E> saveCommand(@NotNull E entity) {
         return sql.saveCommand(entity);
     }
@@ -229,5 +264,58 @@ public class AbstractJavaRepository<E, ID> implements JavaRepository<E, ID> {
         }
         return query.select(
                 fetcher != null ? new FetcherSelectionImpl<>(table, fetcher, converter) : (Selection<X>) table);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <X> UuidV7Slice<X> uuidV7Slice(
+            int limit,
+            @Nullable java.util.UUID after,
+            @Nullable Fetcher<?> fetcher,
+            @Nullable Function<?, X> converter) {
+        if (limit <= 0) {
+            throw new IllegalArgumentException("limit must be greater than 0");
+        }
+        if (limit == Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("limit must be less than Int.MAX_VALUE");
+        }
+        if (type.getIdProp().getReturnClass() != java.util.UUID.class) {
+            throw new IllegalArgumentException("UUIDv7 paging requires a UUID entity id");
+        }
+        if (after != null && after.version() != 7) {
+            throw new IllegalArgumentException("UUIDv7 paging requires a version 7 cursor");
+        }
+        MutableRootQueryImpl<Table<?>> query = new MutableRootQueryImpl<>(
+                (JSqlClientImplementor) sql,
+                type,
+                ExecutionPurpose.QUERY,
+                FilterLevel.DEFAULT);
+        TableImplementor<?> table = (TableImplementor<?>) query.getTableLikeImplementor();
+        PropExpression.Cmp<java.util.UUID> id =
+                (PropExpression.Cmp<java.util.UUID>) (PropExpression.Cmp<?>) table.get(type.getIdProp());
+        if (after != null) {
+            query.where(id.gt(after));
+        }
+        query.orderBy(id.asc());
+        Selection<X> selection = fetcher != null ?
+                new FetcherSelectionImpl<>(table, fetcher, converter) :
+                (Selection<X>) table;
+        List<org.babyfish.jimmer.sql.ast.tuple.Tuple2<java.util.UUID, X>> tuples =
+                query.select(id, selection).limit(limit + 1, 0).execute();
+        boolean hasNext = tuples.size() > limit;
+        List<X> rows = tuples.subList(0, Math.min(limit, tuples.size()))
+                .stream()
+                .map(org.babyfish.jimmer.sql.ast.tuple.Tuple2::get_2)
+                .collect(java.util.stream.Collectors.toList());
+        return new UuidV7Slice<>(rows, hasNext ? tuples.get(limit - 1).get_1() : null);
+    }
+
+    private <X> UuidV7Page<X> uuidV7Page(
+            int limit,
+            @Nullable java.util.UUID after,
+            @Nullable Fetcher<?> fetcher,
+            @Nullable Function<?, X> converter) {
+        UuidV7Slice<X> slice = uuidV7Slice(limit, after, fetcher, converter);
+        return new UuidV7Page<>(slice.getRows(), slice.getNextCursor(),
+                createQuery(null, null, null).fetchUnlimitedCount());
     }
 }

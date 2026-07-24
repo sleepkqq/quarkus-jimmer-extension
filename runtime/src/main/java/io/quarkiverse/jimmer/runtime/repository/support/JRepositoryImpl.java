@@ -1,5 +1,8 @@
 package io.quarkiverse.jimmer.runtime.repository.support;
 
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Page;
+import io.quarkiverse.jimmer.runtime.repo.UuidV7Slice;
+
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -193,6 +196,16 @@ public class JRepositoryImpl<E, ID> implements JRepository<E, ID> {
     }
 
     @Override
+    public UuidV7Slice<E> findUuidV7Slice(int limit, java.util.UUID after, Fetcher<E> fetcher) {
+        return uuidV7Slice(limit, after, fetcher, null);
+    }
+
+    @Override
+    public UuidV7Page<E> findUuidV7Page(int limit, java.util.UUID after, Fetcher<E> fetcher) {
+        return uuidV7Page(limit, after, fetcher, null);
+    }
+
+    @Override
     public long count() {
         return createQuery(null, null, null, null).fetchUnlimitedCount();
     }
@@ -294,6 +307,55 @@ public class JRepositoryImpl<E, ID> implements JRepository<E, ID> {
                 fetcher != null ? new FetcherSelectionImpl<>(table, fetcher, converter) : (Selection<X>) table);
     }
 
+    @SuppressWarnings("unchecked")
+    private <X> UuidV7Slice<X> uuidV7Slice(
+            int limit,
+            @Nullable java.util.UUID after,
+            @Nullable Fetcher<?> fetcher,
+            @Nullable Function<?, X> converter) {
+        if (limit <= 0) {
+            throw new IllegalArgumentException("limit must be greater than 0");
+        }
+        if (limit == Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("limit must be less than Int.MAX_VALUE");
+        }
+        if (immutableType.getIdProp().getReturnClass() != java.util.UUID.class) {
+            throw new IllegalArgumentException("UUIDv7 paging requires a UUID entity id");
+        }
+        if (after != null && after.version() != 7) {
+            throw new IllegalArgumentException("UUIDv7 paging requires a version 7 cursor");
+        }
+        MutableRootQueryImpl<Table<?>> query = new MutableRootQueryImpl<>(sqlClient, immutableType, ExecutionPurpose.QUERY,
+                FilterLevel.DEFAULT);
+        TableImplementor<?> table = (TableImplementor<?>) query.getTableLikeImplementor();
+        PropExpression.Cmp<java.util.UUID> id =
+                (PropExpression.Cmp<java.util.UUID>) (PropExpression.Cmp<?>) table.get(immutableType.getIdProp());
+        if (after != null) {
+            query.where(id.gt(after));
+        }
+        query.orderBy(id.asc());
+        Selection<X> selection = fetcher != null ?
+                new FetcherSelectionImpl<>(table, fetcher, converter) :
+                (Selection<X>) table;
+        List<org.babyfish.jimmer.sql.ast.tuple.Tuple2<java.util.UUID, X>> tuples =
+                query.select(id, selection).limit(limit + 1, 0).execute();
+        boolean hasNext = tuples.size() > limit;
+        List<X> rows = tuples.subList(0, Math.min(limit, tuples.size()))
+                .stream()
+                .map(org.babyfish.jimmer.sql.ast.tuple.Tuple2::get_2)
+                .collect(java.util.stream.Collectors.toList());
+        return new UuidV7Slice<>(rows, hasNext ? tuples.get(limit - 1).get_1() : null);
+    }
+
+    private <X> UuidV7Page<X> uuidV7Page(
+            int limit,
+            @Nullable java.util.UUID after,
+            @Nullable Fetcher<?> fetcher,
+            @Nullable Function<?, X> converter) {
+        UuidV7Slice<X> slice = uuidV7Slice(limit, after, fetcher, converter);
+        return new UuidV7Page<>(slice.getRows(), slice.getNextCursor(), count());
+    }
+
     private class ViewerImpl<V extends View<E>> implements Viewer<E, ID, V> {
 
         private final Class<V> viewType;
@@ -357,6 +419,16 @@ public class JRepositoryImpl<E, ID> implements JRepository<E, ID> {
         public Page<V> findAll(int pageIndex, int pageSize, Sort sort) {
             return createQuery(metadata.getFetcher(), metadata.getConverter(), null, sort)
                     .fetchPage(pageIndex, pageSize);
+        }
+
+        @Override
+        public UuidV7Slice<V> findUuidV7Slice(int limit, java.util.UUID after) {
+            return uuidV7Slice(limit, after, metadata.getFetcher(), metadata.getConverter());
+        }
+
+        @Override
+        public UuidV7Page<V> findUuidV7Page(int limit, java.util.UUID after) {
+            return uuidV7Page(limit, after, metadata.getFetcher(), metadata.getConverter());
         }
     }
 }
