@@ -1,5 +1,6 @@
 plugins {
 	alias(libs.plugins.quarkus)
+	alias(libs.plugins.ksp)
 }
 
 configurations.all {
@@ -30,6 +31,9 @@ dependencies {
 	runtimeOnly(libs.quarkus.jdbc.postgresql)
 
 	annotationProcessor(libs.jimmer.apt)
+	// KSP is wired for the test source set only — a Kotlin entity under src/main/kotlin
+	// would compile with no Jimmer codegen.
+	kspTest(libs.jimmer.ksp)
 
 	testImplementation(libs.quarkus.junit5)
 	testImplementation(libs.rest.assured)

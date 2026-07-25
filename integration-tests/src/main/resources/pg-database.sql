@@ -113,3 +113,33 @@ insert into tree_node(node_id, name, parent_id, created_time, modified_time) val
     (22, 'Formal wear', 18, current_timestamp, current_timestamp),
     (23, 'Suit', 22, current_timestamp, current_timestamp),
     (24, 'Shirt', 22, current_timestamp, current_timestamp);
+
+drop table if exists public.kt_post cascade;
+drop table if exists public.kt_author cascade;
+
+create table public.kt_author (
+    id uuid not null,
+    name varchar(64) not null,
+    constraint kt_author_pkey primary key (id)
+);
+
+create table public.kt_post (
+    id uuid not null,
+    title varchar(128) not null,
+    author_id uuid null,
+    constraint kt_post_pkey primary key (id),
+    constraint kt_post_author_fk foreign key (author_id) references public.kt_author (id)
+);
+
+insert into public.kt_author (id, name) values
+('0191c300-0000-7000-8000-000000000001', 'author-1'),
+('0191c300-0001-7000-8000-000000000002', 'author-2'),
+('0191c300-0002-7000-8000-000000000003', 'author-3'),
+('0191c300-0003-7000-8000-000000000004', 'author-4');
+
+insert into public.kt_post (id, title, author_id) values
+('0191c400-0000-7000-8000-000000000001', 'post-1', '0191c300-0000-7000-8000-000000000001'),
+('0191c400-0001-7000-8000-000000000002', 'post-2', '0191c300-0001-7000-8000-000000000002'),
+('0191c400-0002-7000-8000-000000000003', 'post-3', '0191c300-0002-7000-8000-000000000003'),
+('0191c400-0003-7000-8000-000000000004', 'post-4', '0191c300-0003-7000-8000-000000000004'),
+('0191c400-0004-7000-8000-000000000005', 'post-5', null);

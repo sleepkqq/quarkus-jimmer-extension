@@ -1,5 +1,6 @@
 [versions]
 kotlin = "2.4.10"
+ksp = "2.3.10" # keep in step with the kotlin version above
 quarkus = "3.37.3"
 jimmer = "0.11.4"
 testcontainers = "2.0.5"
@@ -50,6 +51,7 @@ jimmer-sql-kotlin = { module = "org.babyfish.jimmer:jimmer-sql-kotlin", version.
 jimmer-client = { module = "org.babyfish.jimmer:jimmer-client", version.ref = "jimmer" }
 jimmer-client-swagger = { module = "org.babyfish.jimmer:jimmer-client-swagger", version.ref = "jimmer" }
 jimmer-apt = { module = "org.babyfish.jimmer:jimmer-apt", version.ref = "jimmer" }
+jimmer-ksp = { module = "org.babyfish.jimmer:jimmer-ksp", version.ref = "jimmer" }
 
 # GraalVM
 graalvm-nativeimage = { module = "org.graalvm.sdk:nativeimage" }
@@ -63,5 +65,6 @@ testcontainers-junit = { module = "org.testcontainers:testcontainers-junit-jupit
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 quarkus = { id = "io.quarkus", version.ref = "quarkus" }
 quarkus-extension = { id = "io.quarkus.extension", version.ref = "quarkus" }
