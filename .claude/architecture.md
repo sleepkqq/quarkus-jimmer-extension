@@ -40,7 +40,7 @@ Java/Kotlin target: JDK 21. Gradle 9.4.0.
 | `runtime.cfg` | `JimmerBuildTimeConfig`, `JimmerRuntimeConfig`, `JimmerDataSourceRuntimeConfig` |
 | `runtime.cfg.support` | `QuarkusConnectionManager` |
 | `runtime.repository` | `JRepository<E, ID>`, `JRepositoryImpl` |
-| `runtime.repo` | `AbstractJavaRepository`, `AbstractKotlinRepository` |
+| `runtime.repo` | `AbstractJavaRepository`, `AbstractKotlinRepository`, `UuidV7Paging.kt` (closers keyset-пагинации `fetchUuidV7Slice` / `fetchUuidV7Page`), DTO `UuidV7Slice` / `UuidV7Page` |
 | `runtime.cache.impl` | `TransactionCacheOperatorFlusher` |
 | `runtime.exception` | `JimmerDataAccessException` + подтипы, `SqlStateExceptionTranslator` (SQLState→exception) |
 | `runtime.client.openapi` | OpenAPI generation recorders |

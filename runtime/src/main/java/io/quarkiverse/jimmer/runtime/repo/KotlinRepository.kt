@@ -1,7 +1,5 @@
 package io.quarkiverse.jimmer.runtime.repo
 
-import java.util.UUID
-
 import org.babyfish.jimmer.Input
 import org.babyfish.jimmer.Page
 import org.babyfish.jimmer.Slice
@@ -93,30 +91,6 @@ interface KotlinRepository<E: Any, ID: Any> {
         viewType: KClass<V>,
         block: (SortDsl<E>.() -> Unit)? = null
     ): Slice<V>
-
-    fun findUuidV7Slice(
-        limit: Int,
-        after: UUID? = null,
-        fetcher: Fetcher<E>? = null
-    ): UuidV7Slice<E>
-
-    fun <V : View<E>> findUuidV7Slice(
-        limit: Int,
-        after: UUID? = null,
-        viewType: KClass<V>
-    ): UuidV7Slice<V>
-
-    fun findUuidV7Page(
-        limit: Int,
-        after: UUID? = null,
-        fetcher: Fetcher<E>? = null
-    ): UuidV7Page<E>
-
-    fun <V : View<E>> findUuidV7Page(
-        limit: Int,
-        after: UUID? = null,
-        viewType: KClass<V>
-    ): UuidV7Page<V>
 
     fun saveCommand(
         entity: E,
