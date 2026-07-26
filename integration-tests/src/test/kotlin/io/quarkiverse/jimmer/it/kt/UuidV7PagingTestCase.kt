@@ -81,6 +81,18 @@ class UuidV7PagingTestCase {
 	}
 
 	@Test
+	fun rowCursorExtractorPagesEntities() {
+		val page = sql.createQuery(KtPost::class) {
+			orderBy(table.id.asc())
+			select(table)
+		}.fetchUuidV7Slice(2) { it.id }
+
+		Assertions.assertEquals(listOf("post-1", "post-2"), page.rows.map { it.title })
+		Assertions.assertEquals(UUID.fromString("0191c400-0001-7000-8000-000000000002"), page.nextCursor)
+		Assertions.assertFalse(page.isTail)
+	}
+
+	@Test
 	fun keysetOverJoinFiltersAndPages() {
 		fun page(cursor: UUID?) =
 			sql.createQuery(KtPost::class) {

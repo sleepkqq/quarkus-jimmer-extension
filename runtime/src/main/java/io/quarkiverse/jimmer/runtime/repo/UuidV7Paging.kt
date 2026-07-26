@@ -49,15 +49,32 @@ import java.util.UUID
 fun <R> KConfigurableRootQuery<*, Tuple2<UUID, R>>.fetchUuidV7Slice(
 	limit: Int,
 	con: Connection? = null
+): UuidV7Slice<R> = fetchUuidV7Slice(limit, con, { it._2 }, { it._1 })
+
+/**
+ * Fetches one keyset page when the query row already contains its cursor.
+ * The caller must apply the matching cursor predicate and ordering inside the query.
+ */
+fun <R> KConfigurableRootQuery<*, R>.fetchUuidV7Slice(
+	limit: Int,
+	con: Connection? = null,
+	cursorOf: (R) -> UUID,
+): UuidV7Slice<R> = fetchUuidV7Slice(limit, con, { it }, cursorOf)
+
+private fun <T, R> KConfigurableRootQuery<*, T>.fetchUuidV7Slice(
+	limit: Int,
+	con: Connection?,
+	rowOf: (T) -> R,
+	cursorOf: (T) -> UUID,
 ): UuidV7Slice<R> {
 	require(limit > 0) { "limit must be greater than 0" }
 	require(limit < Int.MAX_VALUE) { "limit must be less than Int.MAX_VALUE" }
-	val tuples = limit(limit + 1, 0).execute(con)
-	val hasNext = tuples.size > limit
-	val rows = if (hasNext) tuples.subList(0, limit) else tuples
+	val values = limit(limit + 1, 0).execute(con)
+	val hasNext = values.size > limit
+	val rows = if (hasNext) values.subList(0, limit) else values
 	return UuidV7Slice(
-		rows.map { it._2 },
-		if (hasNext) rows.last()._1 else null
+		rows.map(rowOf),
+		if (hasNext) cursorOf(rows.last()) else null,
 	)
 }
 
