@@ -8,6 +8,10 @@ import java.sql.SQLException;
 public class ForeignKeyViolationException extends JimmerDataAccessException {
 
     public ForeignKeyViolationException(SQLException cause) {
-        super("Foreign key violation: " + cause.getMessage(), cause);
+        this(cause, null);
+    }
+
+    ForeignKeyViolationException(SQLException cause, Metadata metadata) {
+        super("Foreign key violation: " + cause.getMessage(), cause, metadata);
     }
 }

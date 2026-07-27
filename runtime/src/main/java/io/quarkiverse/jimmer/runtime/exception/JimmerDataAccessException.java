@@ -2,6 +2,8 @@ package io.quarkiverse.jimmer.runtime.exception;
 
 import java.sql.SQLException;
 
+import org.babyfish.jimmer.meta.ImmutableType;
+
 /**
  * Base type for the runtime exceptions produced by {@link SqlStateExceptionTranslator} when
  * {@code quarkus.jimmer.<datasource>.constraint-violation-translatable=false}.
@@ -14,9 +16,28 @@ public abstract class JimmerDataAccessException extends RuntimeException {
 
     private final String sqlState;
 
+    private final String tableName;
+
+    private final String schemaName;
+
+    private final String constraintName;
+
+    private final String detail;
+
+    private final ImmutableType immutableType;
+
     protected JimmerDataAccessException(String message, SQLException cause) {
+        this(message, cause, null);
+    }
+
+    protected JimmerDataAccessException(String message, SQLException cause, Metadata metadata) {
         super(message, cause);
         this.sqlState = cause.getSQLState();
+        this.tableName = metadata != null ? metadata.tableName : null;
+        this.schemaName = metadata != null ? metadata.schemaName : null;
+        this.constraintName = metadata != null ? metadata.constraintName : null;
+        this.detail = metadata != null ? metadata.detail : null;
+        this.immutableType = metadata != null ? metadata.immutableType : null;
     }
 
     /**
@@ -32,5 +53,46 @@ public abstract class JimmerDataAccessException extends RuntimeException {
      */
     public SQLException getSqlException() {
         return (SQLException) getCause();
+    }
+
+    public String getTableName() {
+        return tableName;
+    }
+
+    public String getSchemaName() {
+        return schemaName;
+    }
+
+    public String getConstraintName() {
+        return constraintName;
+    }
+
+    public String getDetail() {
+        return detail;
+    }
+
+    public ImmutableType getImmutableType() {
+        return immutableType;
+    }
+
+    static final class Metadata {
+
+        final String tableName;
+
+        final String schemaName;
+
+        final String constraintName;
+
+        final String detail;
+
+        final ImmutableType immutableType;
+
+        Metadata(String tableName, String schemaName, String constraintName, String detail, ImmutableType immutableType) {
+            this.tableName = tableName;
+            this.schemaName = schemaName;
+            this.constraintName = constraintName;
+            this.detail = detail;
+            this.immutableType = immutableType;
+        }
     }
 }

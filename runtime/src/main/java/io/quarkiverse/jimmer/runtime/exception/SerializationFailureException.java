@@ -8,6 +8,10 @@ import java.sql.SQLException;
 public class SerializationFailureException extends JimmerDataAccessException implements TransientDataAccessException {
 
     public SerializationFailureException(SQLException cause) {
-        super("Serialization failure: " + cause.getMessage(), cause);
+        this(cause, null);
+    }
+
+    SerializationFailureException(SQLException cause, Metadata metadata) {
+        super("Serialization failure: " + cause.getMessage(), cause, metadata);
     }
 }

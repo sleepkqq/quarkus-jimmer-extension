@@ -11,6 +11,10 @@ import java.sql.SQLException;
 public class DataIntegrityViolationException extends JimmerDataAccessException {
 
     public DataIntegrityViolationException(SQLException cause) {
-        super("Integrity constraint violation: " + cause.getMessage(), cause);
+        this(cause, null);
+    }
+
+    DataIntegrityViolationException(SQLException cause, Metadata metadata) {
+        super("Integrity constraint violation: " + cause.getMessage(), cause, metadata);
     }
 }

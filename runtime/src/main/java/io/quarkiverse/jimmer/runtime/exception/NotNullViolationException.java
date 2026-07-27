@@ -8,6 +8,10 @@ import java.sql.SQLException;
 public class NotNullViolationException extends JimmerDataAccessException {
 
     public NotNullViolationException(SQLException cause) {
-        super("Not-null violation: " + cause.getMessage(), cause);
+        this(cause, null);
+    }
+
+    NotNullViolationException(SQLException cause, Metadata metadata) {
+        super("Not-null violation: " + cause.getMessage(), cause, metadata);
     }
 }

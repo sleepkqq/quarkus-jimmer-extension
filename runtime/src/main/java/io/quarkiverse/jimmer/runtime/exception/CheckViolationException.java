@@ -8,6 +8,10 @@ import java.sql.SQLException;
 public class CheckViolationException extends JimmerDataAccessException {
 
     public CheckViolationException(SQLException cause) {
-        super("Check violation: " + cause.getMessage(), cause);
+        this(cause, null);
+    }
+
+    CheckViolationException(SQLException cause, Metadata metadata) {
+        super("Check violation: " + cause.getMessage(), cause, metadata);
     }
 }

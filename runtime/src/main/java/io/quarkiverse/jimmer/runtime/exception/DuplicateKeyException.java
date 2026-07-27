@@ -8,6 +8,10 @@ import java.sql.SQLException;
 public class DuplicateKeyException extends JimmerDataAccessException {
 
     public DuplicateKeyException(SQLException cause) {
-        super("Unique or primary key violation: " + cause.getMessage(), cause);
+        this(cause, null);
+    }
+
+    DuplicateKeyException(SQLException cause, Metadata metadata) {
+        super("Unique or primary key violation: " + cause.getMessage(), cause, metadata);
     }
 }

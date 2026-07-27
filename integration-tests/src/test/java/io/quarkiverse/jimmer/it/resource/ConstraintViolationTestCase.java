@@ -6,14 +6,20 @@ import jakarta.inject.Inject;
 
 import org.babyfish.jimmer.sql.ast.mutation.SaveMode;
 import org.babyfish.jimmer.sql.exception.SaveException;
+import org.babyfish.jimmer.meta.ImmutableType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.jimmer.it.entity.Book;
 import io.quarkiverse.jimmer.it.entity.BookStore;
+import io.quarkiverse.jimmer.it.entity.Alias;
+import io.quarkiverse.jimmer.it.entity.ConsumerAlias;
 import io.quarkiverse.jimmer.it.entity.Immutables;
+import io.quarkiverse.jimmer.it.entity.TeamAlias;
 import io.quarkiverse.jimmer.it.repository.BookRepository;
 import io.quarkiverse.jimmer.it.repository.BookStoreRepository;
+import io.quarkiverse.jimmer.it.repository.ConsumerAliasRepository;
+import io.quarkiverse.jimmer.it.repository.TeamAliasRepository;
 import io.quarkiverse.jimmer.runtime.exception.DuplicateKeyException;
 import io.quarkiverse.jimmer.runtime.exception.ForeignKeyViolationException;
 import io.quarkus.test.TestTransaction;
@@ -32,6 +38,12 @@ public class ConstraintViolationTestCase {
     @Inject
     BookRepository bookRepository;
 
+    @Inject
+    ConsumerAliasRepository consumerAliasRepository;
+
+    @Inject
+    TeamAliasRepository teamAliasRepository;
+
     /**
      * Unique key (business_key_book_store on name) → SQLState 23505 → DuplicateKeyException.
      * INSERT_ONLY forces Jimmer to insert a row with the already-taken name 'MANNING'.
@@ -49,6 +61,51 @@ public class ConstraintViolationTestCase {
 
         Assertions.assertEquals("23505", ex.getSqlState());
         Assertions.assertNotNull(ex.getSqlException());
+        Assertions.assertEquals("book_store", ex.getTableName());
+        Assertions.assertEquals("public", ex.getSchemaName());
+        Assertions.assertEquals("business_key_book_store", ex.getConstraintName());
+        Assertions.assertNotNull(ex.getDetail());
+        Assertions.assertEquals(ImmutableType.get(BookStore.class), ex.getImmutableType());
+    }
+
+    @Test
+    @TestTransaction
+    void testSingleTableDuplicateKeyResolvesConsumerSubtype() {
+        ConsumerAlias alias = Immutables.createConsumerAlias(draft -> draft.setValue("reserved"));
+
+        DuplicateKeyException ex = Assertions.assertThrows(DuplicateKeyException.class,
+                () -> consumerAliasRepository.save(alias, SaveMode.INSERT_ONLY));
+
+        Assertions.assertEquals("alias", ex.getTableName());
+        Assertions.assertEquals("public", ex.getSchemaName());
+        Assertions.assertEquals("business_key_alias", ex.getConstraintName());
+        Assertions.assertNotNull(ex.getDetail());
+        Assertions.assertEquals(ImmutableType.get(ConsumerAlias.class), ex.getImmutableType());
+    }
+
+    @Test
+    @TestTransaction
+    void testSingleTableDuplicateKeyResolvesTeamSubtype() {
+        TeamAlias alias = Immutables.createTeamAlias(draft -> draft.setValue("reserved"));
+
+        DuplicateKeyException ex = Assertions.assertThrows(DuplicateKeyException.class,
+                () -> teamAliasRepository.save(alias, SaveMode.INSERT_ONLY));
+
+        Assertions.assertEquals(ImmutableType.get(TeamAlias.class), ex.getImmutableType());
+    }
+
+    @Test
+    @TestTransaction
+    void testSingleTableUpdateDuplicateKeyResolvesRootType() {
+        ConsumerAlias alias = Immutables.createConsumerAlias(draft -> {
+            draft.setId(2L);
+            draft.setValue("reserved");
+        });
+
+        DuplicateKeyException ex = Assertions.assertThrows(DuplicateKeyException.class,
+                () -> consumerAliasRepository.save(alias, SaveMode.UPDATE_ONLY));
+
+        Assertions.assertEquals(ImmutableType.get(Alias.class), ex.getImmutableType());
     }
 
     /**

@@ -51,6 +51,7 @@ import org.babyfish.jimmer.jackson.codec.JsonCodec;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerBuildTimeConfig;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerDataSourceRuntimeConfig;
 import io.quarkiverse.jimmer.runtime.executor.CompactSqlExecutor;
+import io.quarkiverse.jimmer.runtime.executor.SqlStateContextExecutor;
 import io.quarkiverse.jimmer.runtime.exception.SqlStateExceptionTranslator;
 import io.quarkiverse.jimmer.runtime.cfg.JimmerRuntimeConfig;
 import io.quarkiverse.jimmer.runtime.cfg.support.QuarkusConnectionManager;
@@ -190,12 +191,13 @@ class JQuarkusSqlClient extends JLazyInitializationSqlClient implements SqlClien
         runtimeConfig.dataSources().get(dataSourceName).jdbc().defaultQueryTimeout()
                 .ifPresent(builder::setDefaultJdbcQueryTimeout);
 
+        Executor contextExecutor = new SqlStateContextExecutor(executor);
         if (buildTimeConfig.dataSources().get(dataSourceName).compactSqlLog()) {
-            builder.setExecutor(new CompactSqlExecutor(executor));
+            builder.setExecutor(new CompactSqlExecutor(contextExecutor));
         } else if (buildTimeConfig.dataSources().get(dataSourceName).showSql()) {
-            builder.setExecutor(Executor.log(executor));
+            builder.setExecutor(Executor.log(contextExecutor));
         } else {
-            builder.setExecutor(executor);
+            builder.setExecutor(contextExecutor);
         }
         if (sqlFormatter != null) {
             builder.setSqlFormatter(sqlFormatter);

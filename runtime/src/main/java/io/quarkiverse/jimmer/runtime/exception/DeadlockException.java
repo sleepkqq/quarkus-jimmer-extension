@@ -9,6 +9,10 @@ import java.sql.SQLException;
 public class DeadlockException extends JimmerDataAccessException implements TransientDataAccessException {
 
     public DeadlockException(SQLException cause) {
-        super("Deadlock detected: " + cause.getMessage(), cause);
+        this(cause, null);
+    }
+
+    DeadlockException(SQLException cause, Metadata metadata) {
+        super("Deadlock detected: " + cause.getMessage(), cause, metadata);
     }
 }
