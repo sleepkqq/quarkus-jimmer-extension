@@ -152,12 +152,12 @@ final class JimmerProcessor {
             DotName.createSimple(Entity.class),
             DotName.createSimple(MappedSuperclass.class));
 
-    private static final List<Class<?>> IMPLEMENTOR_TYPES = List.of(
-            View.class,
-            Input.class,
-            Draft.class,
-            Table.class,
-            Fetcher.class);
+    private static final Set<DotName> IMPLEMENTOR_TYPES = Set.of(
+            DotName.createSimple(View.class.getName()),
+            DotName.createSimple(Input.class.getName()),
+            DotName.createSimple(Draft.class.getName()),
+            DotName.createSimple(Table.class.getName()),
+            DotName.createSimple(Fetcher.class.getName()));
 
     // Whole Jimmer SQL annotation surface (incl. the nested @JoinTable filters) kept for kotlin-reflect,
     // which resolves every annotation member type when building entity metadata at run time. Referenced
@@ -201,18 +201,6 @@ final class JimmerProcessor {
     @BuildStep
     FeatureBuildItem feature() {
         return new FeatureBuildItem(FEATURE);
-    }
-
-    @BuildStep(onlyIf = IsJavaEnable.class)
-    void indexJimmerForJava(BuildProducer<IndexDependencyBuildItem> indexDependency) {
-        indexDependency.produce(new IndexDependencyBuildItem("org.babyfish.jimmer", "jimmer-core"));
-        indexDependency.produce(new IndexDependencyBuildItem("org.babyfish.jimmer", "jimmer-sql"));
-    }
-
-    @BuildStep(onlyIf = IsKotlinEnable.class)
-    void indexJimmerForKotlin(BuildProducer<IndexDependencyBuildItem> indexDependency) {
-        indexDependency.produce(new IndexDependencyBuildItem("org.babyfish.jimmer", "jimmer-core-kotlin"));
-        indexDependency.produce(new IndexDependencyBuildItem("org.babyfish.jimmer", "jimmer-sql-kotlin"));
     }
 
     @BuildStep
@@ -1166,9 +1154,22 @@ final class JimmerProcessor {
     }
 
     private void collectImplementors(IndexView index, Set<String> classNames) {
-        for (Class<?> type : IMPLEMENTOR_TYPES) {
-            for (ClassInfo implementor : index.getAllKnownImplementations(type)) {
-                addClassWithMemberClasses(implementor, classNames);
+        Set<DotName> implementorTypes = new HashSet<>(IMPLEMENTOR_TYPES);
+        boolean changed;
+        do {
+            changed = false;
+            for (ClassInfo candidate : index.getKnownClasses()) {
+                if (candidate.isInterface()
+                        && candidate.interfaceNames().stream().anyMatch(implementorTypes::contains)) {
+                    changed |= implementorTypes.add(candidate.name());
+                }
+            }
+        } while (changed);
+
+        // Jimmer dependencies need not be Jandex-indexed: model classes retain direct interfaces.
+        for (ClassInfo candidate : index.getKnownClasses()) {
+            if (candidate.interfaceNames().stream().anyMatch(implementorTypes::contains)) {
+                addClassWithMemberClasses(candidate, classNames);
             }
         }
     }
