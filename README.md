@@ -1,5 +1,16 @@
 # Quarkus Jimmer Extension
 
+> **Development has moved to [sleepkqq/jimmer](https://github.com/sleepkqq/jimmer).**
+> The extension and the full Jimmer ORM now share one Gradle build and release version.
+> Use `com.github.sleepkqq.jimmer:quarkus-jimmer:1.0.1` and matching
+> `com.github.sleepkqq.jimmer:jimmer-apt:1.0.1` / `jimmer-ksp:1.0.1` from public JitPack.
+> Replace all direct `org.babyfish.jimmer` dependencies with the fork's coordinates;
+> Java/Kotlin packages and configuration keys are unchanged. No consumer tokens are needed.
+> See the [migration guide](https://github.com/sleepkqq/jimmer/blob/1.0.1/FORK.md).
+> This repository is retained as a read-only archive: existing tags and artifacts,
+> including `1.14.1`, keep their original coordinates. The documentation below describes
+> the previous standalone extension.
+
 [![CI](https://github.com/sleepkqq/quarkus-jimmer-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/sleepkqq/quarkus-jimmer-extension/actions/workflows/ci.yml)
 [![Release](https://github.com/sleepkqq/quarkus-jimmer-extension/actions/workflows/release.yml/badge.svg)](https://github.com/sleepkqq/quarkus-jimmer-extension/actions/workflows/release.yml)
 [![JitPack](https://jitpack.io/v/sleepkqq/quarkus-jimmer-extension.svg)](https://jitpack.io/#sleepkqq/quarkus-jimmer-extension)
